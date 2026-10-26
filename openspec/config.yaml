@@ -1,0 +1,59 @@
+schema: spec-driven
+
+# Project context
+# Constraints an agent cannot infer by reading the code.
+context: |
+  FreshTrace is a farm-to-table e-commerce marketplace for Dhaka, Bangladesh.
+  Product requirements live in PRD.md; technical requirements live in SRS.md.
+  Both documents are the source of truth for scope and behaviour.
+
+  Fixed stack constraints (do not propose alternatives without a stated reason):
+  - Next.js 16 App Router, written in JavaScript (.js / .jsx). No TypeScript.
+  - Single deployable application. There is no separate backend service.
+  - API is implemented as Next.js Route Handlers under src/app/api/**.
+  - Prisma ORM over SQLite. SQLite permits one writer; the app runs as a
+    single writable instance for v1.
+  - Tailwind CSS v4, configured CSS-first via @theme in globals.css.
+    There is no tailwind.config.js.
+  - Custom lightweight session auth: database-backed sessions table plus an
+    httpOnly cookie. No JWTs and no third-party auth framework.
+  - Payments use a local, offline mock Stripe checkout. No Stripe account,
+    no API keys, no outbound payment network calls in v1.
+  - Money is integer BDT. Quantities are Float (kg may be fractional).
+  - SQLite has no native enum type; enum-like fields are String plus an
+    application-level allowlist.
+
+  Product constraints:
+  - Roles are exactly: customer, aggregator, qc_staff, admin.
+  - Freshness decay is a rule-based pricing engine, not ML.
+  - One QC hub, Dhaka only, for v1.
+  - Freshness tier is the core differentiator; traceability alone is table-stakes.
+
+  Explicit v1 non-goals: native mobile apps, B2B data API, second QC hub,
+  live payment processing, multi-instance deployment, TypeScript.
+
+# Per-artifact rules
+rules:
+  proposal:
+    - State explicitly what is out of scope for the change.
+    - Reference the governing PRD.md or SRS.md section when one exists.
+    - Note any change to the data model, auth model, or payment flow explicitly.
+  specs:
+    - Describe observable behaviour and required outcomes, not implementation steps.
+    - Cover error and edge cases, not only the happy path.
+  design:
+    - Name the files that will change and why.
+    - Call out any migration or backfill required for existing data.
+  tasks:
+    - Break work into independently verifiable steps.
+    - Include test coverage in the task that introduces the behaviour.
+
+# Per-operation guidance
+operations:
+  apply:
+    guidance:
+      - Keep the Prisma schema and SRS.md section 4 in sync when the data model changes.
+      - Run prisma validate and prisma generate after any schema change.
+  archive:
+    guidance:
+      - Summarise the archived outcome and note any follow-up changes still required.

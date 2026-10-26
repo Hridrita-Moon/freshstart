@@ -256,9 +256,9 @@ Four explicit roles, each with a separate permission set:
 
 ### 3.5 Password reset (v1, email-based)
 
-- POST `/api/auth/password-reset/request` with email → server creates a single-use, 1-hour token, stores its SHA-256 hash in the `password_resets` table, and sends an email with a reset link.
-- POST `/api/auth/password-reset/confirm` with token + new password → server validates, updates the password hash, deletes **all** of the user's sessions, and marks the reset token used.
-- `password_resets` rows are purged 24 hours after expiry by a scheduled job.
+- POST `/api/auth/password-reset/request` with email → server creates a single-use, 1-hour token, stores its SHA-256 hash in the user's `resetTokenHash` field with `resetTokenExpiresAt`, and sends an email with a reset link.
+- POST `/api/auth/password-reset/confirm` with token + new password → server validates, updates the password hash, deletes **all** of the user's sessions, and clears `resetTokenHash` / `resetTokenExpiresAt` so the token cannot be reused.
+- Expired reset tokens are purged 24 hours after expiry by a scheduled job.
 
 ---
 
@@ -266,58 +266,70 @@ Four explicit roles, each with a separate permission set:
 
 The data model is defined in `prisma/schema.prisma` and is the single source of truth. SQLite is relational, so integrity is enforced by foreign keys, unique constraints, and `NOT NULL` at the database level rather than in application code.
 
+The model has **15 tables**. It was reduced from an earlier 20-table draft during the `lean-v1-data-model` change; the removals and their justifications are recorded in §4.16.
+
 > **Conventions.**
 > - Primary keys are `cuid()` strings (Prisma default), consistent with the existing schema.
-> - Foreign keys are declared with `onDelete` behaviour chosen per relation (defaults to `RESTRICT` where deletion should be blocked, `CASCADE` for dependent child rows such as order items).
-> - Dates are stored as SQLite `DATETIME` (ISO-8601 text). `harvestDate` is **date-only** (midnight Dhaka time) and is treated as a calendar date, not a moment.
-> - Money is stored as **integer BDT** (`Int`), never floating point, to avoid rounding errors.
-> - Enum-like fields are stored as `String` with an allowlist validated in application code. SQLite has no native enum type, and Prisma's enum support is not portable to SQLite.
+> - Referential actions are **declared explicitly** on every relation, never left implicit. Dependent child rows use `Cascade` (`Session`, `Address`, `BatchQcLog`, `OrderItem`, `RefundItem`); business records use `Restrict` (`Order`, `Refund`, `Payment`, `Delivery`), so a paid order cannot lose its payment or refund history by being deleted out from under it.
+> - Dates are stored as SQLite `DATETIME` (ISO-8601 text). `harvestDate` and `HubClosure.date` are **date-only** (midnight Dhaka time) and are treated as calendar dates, not moments.
+> - Money is stored as **integer BDT** (`Int`), never floating point, to avoid rounding errors. Quantities are `Float`, because kilogram weights are genuinely fractional.
+> - Enum-like fields are stored as `String` with an allowlist validated in application code. SQLite has no native enum type, and Prisma's enum support is not portable to SQLite. The allowed values are documented in a comment on each field.
 > - Timestamps (`createdAt`, `updatedAt`) are present on all tables.
 
 ### 4.1 `User`
 
 ```prisma
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  emailVerified DateTime?
-  name          String?
-  phone         String?
-  image         String?
-  passwordHash  String
-  role          String    @default("customer")   // customer | aggregator | qc_staff | admin
-  status        String    @default("active")     // active | suspended
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  phone        String?
+  role         String    @default("customer") // customer | aggregator | qc_staff | admin
+  status       String    @default("active")   // active | suspended
+  lastLoginAt  DateTime?
 
-  addresses       Address[]
+  // Aggregator-only fields (null for other roles)
+  companyName String?
+  districts   String? // JSON array of allowed origin districts
+
+  // Single-use password reset (SRS §3.5)
+  resetTokenHash      String?
+  resetTokenExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   sessions        Session[]
+  addresses       Address[]
   orders          Order[]
   subscriptions   Subscription[]
   batches         Batch[]        @relation("AggregatorBatches")
   qcLogs          BatchQcLog[]
-  refunds         Refund[]
-  auditLogs       AuditLog[]
-  aggregatorProfile AggregatorProfile?
+  refunds         Refund[]       @relation("RefundRequester")
+  resolvedRefunds Refund[]       @relation("RefundResolver")
+
+  @@index([role, status])
 }
 ```
 
 Indexes: `{ email }` unique; `{ role, status }` compound.
 
+> **Folded from `AggregatorProfile` and `PasswordReset`.** An aggregator's company name and allowed districts belong to exactly one user, and a pending password-reset token belongs to exactly one user, so both live here rather than in separate tables. `resetTokenHash` is a SHA-256 hash of the raw reset token; the raw token exists only in the email link.
+
 ### 4.2 `Session`
 
 ```prisma
 model Session {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash    String   @unique      // sha256 of the raw session token
-  expiresAt    DateTime
-  lastUsedAt   DateTime @default(now())
-  userAgent    String?
-  ipAddress    String?
-  createdAt    DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([expiresAt])
@@ -328,129 +340,111 @@ Indexes: `{ tokenHash }` unique; `{ userId }`; `{ expiresAt }` (purge job scan).
 
 **Lifecycle.** Created on successful login/registration; extended on eligible authenticated requests (§3.1); deleted on logout, on password reset, on user suspension, and by the session-purge job when `expiresAt` has passed.
 
-### 4.3 `PasswordReset`
+> **The raw token is never stored.** `tokenHash` holds the SHA-256 of the opaque token; the raw token exists only in the httpOnly `ft_session` cookie. A database leak therefore yields hashes that cannot be replayed as cookies.
 
-```prisma
-model PasswordReset {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique      // sha256 of the raw reset token
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId])
-  @@index([expiresAt])
-}
-```
-
-### 4.4 `Address`
+### 4.3 `Address`
 
 ```prisma
 model Address {
-  id            String  @id @default(cuid())
+  id            String   @id @default(cuid())
   userId        String
-  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  label         String            // e.g. 'Home', 'Office'
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String   @default("Home")
   line1         String
   line2         String?
-  area          String            // e.g. 'Gulshan-2'
-  city          String            @default("Dhaka")
+  area          String // e.g. 'Gulshan-2'
+  city          String   @default("Dhaka")
   geoLat        Float?
   geoLng        Float?
   deliveryNotes String?
-  isDefault     Boolean @default(false)
+  isDefault     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  subscriptions Subscription[]
 
   @@index([userId, isDefault])
 }
 ```
 
-### 4.5 `AggregatorProfile`
-
-```prisma
-model AggregatorProfile {
-  id             String @id @default(cuid())
-  userId         String @unique
-  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyName    String?
-  contactPerson  String?
-  districts      String   @default("[]")  // JSON array of allowed origin districts
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-```
-
-### 4.6 `Product`
+### 4.4 `Product`
 
 ```prisma
 model Product {
-  id                String   @id @default(cuid())
-  sku               String   @unique
-  name              String
-  category          String            // fruit | vegetable | other
-  defaultUnit       String            // kg | piece | bunch
-  baseUnitPrice     Int                // BDT
-  imageUrl          String?
-  description       String?
-  originDistrict    String?
-  harvestToShelfDays Int               // days from harvest to delist (used by decay engine)
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  sku                String   @unique
+  name               String
+  category           String // fruit | vegetable | other
+  defaultUnit        String   @default("kg") // kg | piece | bunch
+  baseUnitPrice      Int // BDT
+  imageUrl           String?
+  description        String?
+  originDistrict     String?
+  harvestToShelfDays Int      @default(5) // days from harvest to delist (decay engine)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   batches Batch[]
+
+  @@index([category, isActive])
 }
 ```
 
 Indexes: `{ sku }` unique; `{ category, isActive }` compound.
 
-### 4.7 `Batch`
+`harvestToShelfDays` is the decay engine's shelf-life input. The tier curve itself is fixed (§5.1); this field sets where `near_expiry` ends and `expired` begins for each product.
+
+### 4.5 `Batch`
 
 ```prisma
 model Batch {
-  id                  String    @id @default(cuid())
-  productId           String
-  product             Product   @relation(fields: [productId], references: [id])
-  aggregatorId        String
-  aggregator          User      @relation("AggregatorBatches", fields: [aggregatorId], references: [id])
-  batchCode           String    @unique      // human-readable, e.g. 'FT-MNG-2026-10-09-A1'
-  harvestDate         DateTime               // date only (midnight, Asia/Dhaka)
-  originDistrict      String
-  inboundQty          Float                 // kg at receiving
-  availableQty        Float                 // kg remaining (decremented on order)
-  qcStatus            String    @default("pending")  // pending | passed | failed
-  currentTier         String?                         // fresh | good | fair | near_expiry | expired
-  currentPriceMultiplier Float   @default(1.0)       // 1.0 / 0.8 / 0.6 / 0.3 / 0.0
-  status              String    @default("in_transit") // in_transit | listed | delisted | sold_out
-  inboundAt           DateTime?
-  listedAt            DateTime?
-  expiresAt           DateTime?                      // harvestDate + harvestToShelfDays
-  qrSlug              String    @unique             // short slug for the public QR URL
-  qrImageUrl          String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                     String    @id @default(cuid())
+  productId              String
+  product                Product   @relation(fields: [productId], references: [id])
+  aggregatorId           String
+  aggregator             User      @relation("AggregatorBatches", fields: [aggregatorId], references: [id])
+  batchCode              String    @unique // human-readable, e.g. 'FT-MNG-2026-10-09-A1'
+  qrSlug                 String    @unique // short slug encoded in the printed QR
+  harvestDate            DateTime // calendar date (midnight Asia/Dhaka)
+  originDistrict         String
+  inboundQty             Float // kg at receiving
+  availableQty           Float // kg remaining
+  qcStatus               String    @default("pending") // pending | passed | failed
+  currentTier            String? // fresh | good | fair | near_expiry | expired
+  currentPriceMultiplier Float     @default(1.0) // 1.0 | 0.8 | 0.6 | 0.3 | 0.0
+  status                 String    @default("in_transit") // in_transit | listed | delisted | sold_out
+  inboundAt              DateTime?
+  listedAt               DateTime?
+  expiresAt              DateTime? // harvestDate + harvestToShelfDays
+  qrImageUrl             String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  qcLogs  BatchQcLog[]
-  items   OrderItem[]
+  qcLogs BatchQcLog[]
+  items  OrderItem[]
+
+  @@index([status, expiresAt])
+  @@index([aggregatorId, status])
+  @@index([productId, status, currentTier])
 }
 ```
 
 Indexes: `{ batchCode }` unique; `{ qrSlug }` unique; `{ status, expiresAt }` compound; `{ aggregatorId, status }` compound; `{ productId, status, currentTier }` compound.
 
-**`qrSlug` generation.** On batch creation, the server generates `qrSlug` from a random 10-character nanoid-style string and stores it. The public route `/p/[batchCode]` resolves via `batchCode` for human readability, while the QR code image encodes the short URL `https://freshtrace.bd/p/{qrSlug}`. A redirect from `/p/{qrSlug}` to `/p/{batchCode}` keeps URLs tidy.
+> **`currentTier` is a cache, not the source of truth.** The decay function (§5.2) is recomputed on every read and is authoritative over the stored value. The stored tier and multiplier exist so the scheduled job can detect the transition to `expired` and act on it, and so reporting does not need to recompute across the whole table. Callers must not trust the stored value without recomputing.
+
+**`qrSlug` generation.** On batch creation, the server generates `qrSlug` from a random 10-character nanoid-style string and stores it. The public route `/p/[batchCode]` resolves via `batchCode` for human readability, while the QR code image encodes the short URL `https://freshtrace.bd/p/{qrSlug}`. A redirect from `/p/{qrSlug}` to `/p/{batchCode]` keeps URLs tidy.
 
 **Batch state machine (explicit).** Valid transitions: `in_transit → listed` (after QC pass + admin confirmation); `listed → delisted` (after `tier_recompute` finds `expired`, or admin force); `listed → sold_out` (when `availableQty` reaches 0); `delisted → listed` is **not** allowed. Failed QC keeps the batch in `in_transit` with `qcStatus=failed`; admin may either discard (`status=delisted`) or re-inspect (which creates a new `batch_qc_log`).
 
-**Validation rules on `POST /api/batches`.** `harvestDate` must be ≤ today (Dhaka time); future dates are rejected. `originDistrict` must be in the allowlist configured on the aggregator profile. `inboundQty` must be > 0. `batchCode` (if supplied) must be unique across the platform; auto-generated if absent.
+**Validation rules on `POST /api/batches`.** `harvestDate` must be ≤ today (Dhaka time); future dates are rejected. `originDistrict` must be in the allowlist on the aggregator's `User.districts`. `inboundQty` must be > 0. `batchCode` (if supplied) must be unique across the platform; auto-generated if absent.
 
 **Decrement semantics (SQLite).** `availableQty` is decremented at order placement inside a **Prisma interactive transaction** using a conditional update (`updateMany` with a `where` clause requiring `availableQty >= requestedQty` and `status = 'listed'`). If the update affects zero rows, the order is rejected with `409 conflict` and error code `out_of_stock`; the customer is shown the actual remaining qty. Because the conditional update is a single atomic SQL statement, this avoids oversell without a distributed lock. On order cancel/refund (full), the decrement is reverted with an equivalent atomic increment, in the same transaction as the status change.
 
 > **Why an interactive transaction.** SQLite serialises writes at the file level, but a decrement plus an order insert is two statements. Wrapping both in `prisma.$transaction(async (tx) => { ... })` guarantees that a failure between them rolls back cleanly rather than leaking reserved stock.
 
-### 4.8 `BatchQcLog`
+### 4.6 `BatchQcLog`
 
 ```prisma
 model BatchQcLog {
@@ -460,31 +454,35 @@ model BatchQcLog {
   inspectorId  String
   inspector    User     @relation(fields: [inspectorId], references: [id])
   inspectedAt  DateTime @default(now())
-  grade        String            // A | B | C
+  grade        String // A | B | C
   weightKg     Float
   temperatureC Float?
   passed       Boolean
   notes        String?
-  photos       String   @default("[]")  // JSON array of Cloudinary URLs
+  photos       String? // JSON array of Cloudinary URLs
   createdAt    DateTime @default(now())
 
   @@index([batchId, inspectedAt])
 }
 ```
 
-### 4.9 `SubscriptionPlan`
+A failed batch may be re-inspected, producing a new log rather than mutating the old one.
+
+### 4.7 `SubscriptionPlan`
 
 ```prisma
 model SubscriptionPlan {
   id          String   @id @default(cuid())
-  name        String            // 'Couple Weekly', 'Family Weekly', 'Family Premium'
-  basketSize  String            // small | medium | large
-  weeklyPrice Int                // BDT (fresh-tier price)
+  name        String
+  basketSize  String // small | medium | large
+  weeklyPrice Int // BDT, fresh-tier price (a maximum, not a fixed charge)
   description String?
-  composition String   @default("[]")  // JSON array of { productId, defaultQty }
+  composition String   @default("[]")
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  subscriptions Subscription[]
 }
 ```
 
@@ -496,27 +494,29 @@ model SubscriptionPlan {
 | `Family Weekly` | `medium` | 1,500 | ~4–5 kg, 6–8 SKUs |
 | `Family Premium` | `large` | 1,800 | ~5–6 kg, 7–9 SKUs |
 
-`weeklyPrice` is the **fresh**-tier price. Subscription orders are computed at the actual freshness tier on the delivery day, so the customer is charged the per-item tiered total, which may be lower than `weeklyPrice`. The plan `weeklyPrice` is therefore a maximum, not a fixed charge.
+`weeklyPrice` is the **fresh**-tier price. Subscription orders are computed at the actual freshness tier on the delivery day, so the customer is charged the per-item tiered total, which may be lower than `weeklyPrice`. The plan `weeklyPrice` is therefore a maximum, not a fixed charge. `composition` is a JSON array of `{ productId, defaultQty }`.
 
-### 4.10 `Subscription`
+### 4.8 `Subscription`
 
 ```prisma
 model Subscription {
-  id             String    @id @default(cuid())
+  id             String           @id @default(cuid())
   customerId     String
-  customer       User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer       User             @relation(fields: [customerId], references: [id], onDelete: Cascade)
   planId         String
   plan           SubscriptionPlan @relation(fields: [planId], references: [id])
   addressId      String
-  address        Address   @relation(fields: [addressId], references: [id])
-  dayOfWeek      Int                 // 0 = Sunday, 6 = Saturday
-  status         String    @default("active")  // active | paused | ended
+  address        Address          @relation(fields: [addressId], references: [id])
+  dayOfWeek      Int // 0 = Sunday, 6 = Saturday
+  status         String           @default("active") // active | paused | ended
   nextDeliveryAt DateTime
   pauseUntil     DateTime?
-  startedAt      DateTime  @default(now())
+  startedAt      DateTime         @default(now())
   endedAt        DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  orders Order[]
 
   @@index([customerId, status])
   @@index([status, nextDeliveryAt])
@@ -525,34 +525,34 @@ model Subscription {
 
 **Address protection.** A subscription's `addressId` may not be deleted while the subscription is `active` or `paused`. If a customer attempts to delete a referenced address, the API returns `409 conflict` with a list of referencing subscriptions. Address edits (e.g. `line1`, `area`) propagate to the `addressSnapshot` of any **future, unplaced** subscription renewal orders but do not retroactively change already-placed orders.
 
-### 4.11 `Order`
+### 4.9 `Order`
 
 ```prisma
 model Order {
-  id             String    @id @default(cuid())
-  orderCode      String    @unique      // human-readable, e.g. 'FT-ORD-2026-10-09-0001'
-  customerId     String
-  customer       User      @relation(fields: [customerId], references: [id])
-  subscriptionId String?
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
-  addressSnapshot String   @default("{}")  // JSON snapshot of the address at order time
-  items          OrderItem[]
-  subtotal       Int
-  deliveryFee    Int       @default(0)
-  discount       Int       @default(0)
-  grandTotal     Int
-  paymentStatus  String    @default("pending") // pending | paid | failed | refunded | partially_refunded
-  paymentMethod  String?                     // card | bkash | nagad (mock)
-  paymentRef     String?                     // mock Stripe session/payment ID
-  status         String    @default("pending_payment") // pending_payment | paid | in_fulfillment | in_transit | delivered | cancelled | refunded
-  placedAt       DateTime  @default(now())
-  paidAt         DateTime?
-  deliveredAt    DateTime?
-  refundRequestedAt DateTime?
-  refundReason   String?
-  refundedAmount Int       @default(0)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id              String        @id @default(cuid())
+  orderCode       String        @unique
+  customerId      String
+  customer        User          @relation(fields: [customerId], references: [id])
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  addressSnapshot String        @default("{}")
+  subtotal        Int
+  deliveryFee     Int           @default(0)
+  grandTotal      Int
+  paymentStatus   String        @default("pending") // pending | paid | failed | refunded | partially_refunded
+  paymentMethod   String? // card | bkash | nagad (mock)
+  status          String        @default("pending_payment") // pending_payment | paid | in_fulfillment | in_transit | delivered | cancelled | refunded
+  placedAt        DateTime      @default(now())
+  paidAt          DateTime?
+  deliveredAt     DateTime?
+  cancelReason    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items    OrderItem[]
+  delivery Delivery?
+  payments Payment[]
+  refunds  Refund[]
 
   @@index([customerId, placedAt])
   @@index([status, placedAt])
@@ -560,22 +560,24 @@ model Order {
 }
 ```
 
-### 4.12 `OrderItem`
+`addressSnapshot` is a frozen JSON copy of the delivery address as it stood at order time. Later edits to the customer's address never alter an order already placed.
+
+### 4.10 `OrderItem`
 
 ```prisma
 model OrderItem {
-  id                  String @id @default(cuid())
-  orderId             String
-  order               Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  batchId             String
-  batch               Batch  @relation(fields: [batchId], references: [id])
-  productId           String
-  product             Product @relation(fields: [productId], references: [id])
-  name                String          // denormalized at order time
-  qty                 Float
-  unitPrice           Int             // applied price (after tier discount), BDT
-  lineTotal           Int             // BDT
-  freshnessTierAtOrder String         // fresh | good | fair | near_expiry
+  id                   String @id @default(cuid())
+  orderId              String
+  order                Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  batchId              String
+  batch                Batch  @relation(fields: [batchId], references: [id])
+  name                 String // denormalized at order time
+  qty                  Float
+  unitPrice            Int // BDT, after tier discount
+  lineTotal            Int // BDT
+  freshnessTierAtOrder String // fresh | good | fair | near_expiry
+
+  refundItems RefundItem[]
 
   @@index([orderId])
 }
@@ -583,52 +585,80 @@ model OrderItem {
 
 > **Why order items are a separate table.** The v1 schema previously embedded order lines as a JSON array. In a relational database, a proper child table gives us a foreign key to `Batch`, which lets the database enforce that an order line cannot reference a deleted batch, and it makes per-line refund accounting (§6.4.5) a straightforward relational query rather than JSON-array arithmetic.
 
-### 4.13 `Delivery`
+`unitPrice` is the tier-discounted price **actually charged**. Refunds derive from this field, never from the product's undiscounted base price. `qty` is a `Float` because kilogram weights are fractional.
+
+### 4.11 `Delivery`
 
 ```prisma
 model Delivery {
-  id               String    @id @default(cuid())
-  orderId          String    @unique
-  order            Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  courier          String    @default("pathao")
-  courierOrderId   String?   @unique
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  courier           String    @default("pathao")
+  courierOrderId    String?   @unique
   courierTrackingId String?
-  courierStatus    String    @default("created") // created | picked_up | in_transit | delivered | cancelled | failed
-  assignedAt       DateTime  @default(now())
-  pickedUpAt       DateTime?
-  deliveredAt      DateTime?
-  riderInfo        String?   // JSON { name, phone }
-  lastWebhookAt    DateTime?
-  failureReason    String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  courierStatus     String    @default("created") // created | picked_up | in_transit | delivered | cancelled | failed
+  assignedAt        DateTime  @default(now())
+  pickedUpAt        DateTime?
+  deliveredAt       DateTime?
+  riderInfo         String? // JSON { name, phone }
+  lastWebhookAt     DateTime?
+  failureReason     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 ```
 
-### 4.14 `Refund`
+> **`courierOrderId` is unique, and that is the webhook idempotency mechanism.** Pathao is the only webhook source in v1 and re-delivers statuses by design. The unique constraint means a repeated courier notification updates the existing delivery record rather than creating a second one. A generic `WebhookEvent` table with retry state was considered and rejected as infrastructure for a single provider; when live Stripe arrives, its webhook will need genuine replay protection and a signed-payload check, and adding a `WebhookEvent` table then is cleaner than generalising it now.
+
+An order has at most one delivery record (`orderId` is unique).
+
+### 4.12 `Refund`
 
 ```prisma
 model Refund {
-  id             String    @id @default(cuid())
-  orderId        String
-  order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  requestedBy    String
-  requester      User      @relation(fields: [requestedBy], references: [id])
-  requestedByRole String   // customer | qc_staff | admin
-  reason         String
-  items          String    @default("[]")  // JSON array of { orderItemId, qty, amount }
-  amount         Int
-  status         String    @default("requested") // requested | approved | rejected | processed
-  resolvedBy     String?
-  resolver       User?     @relation("RefundResolver", fields: [resolvedBy], references: [id])
-  resolvedAt     DateTime?
+  id               String    @id @default(cuid())
+  orderId          String
+  order            Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  requestedBy      String
+  requester        User      @relation("RefundRequester", fields: [requestedBy], references: [id])
+  requestedByRole  String // customer | qc_staff | admin
+  reason           String
+  amount           Int
+  status           String    @default("requested") // requested | approved | rejected | processed
+  resolvedBy       String?
+  resolver         User?     @relation("RefundResolver", fields: [resolvedBy], references: [id])
+  resolvedAt       DateTime?
   gatewayRefundRef String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  items RefundItem[]
+
+  @@index([orderId])
+  @@index([status, createdAt])
 }
 ```
 
-### 4.15 `Payment`
+`Refund.amount` is denormalised from its `RefundItem` lines. The two must agree; that invariant is enforced in the write path, not by the database.
+
+### 4.13 `RefundItem`
+
+```prisma
+model RefundItem {
+  id          String    @id @default(cuid())
+  refundId    String
+  refund      Refund    @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+  qty         Float
+  amount      Int // BDT
+}
+```
+
+> **Why refund lines are a separate table.** The refund formula — discount-aware unit price times quantity — is computed per line and then summed. As a JSON array that sum is application logic; as a child table it is a query the database can answer, and each line amount is individually addressable and auditable. A line's `amount` derives from the referenced `OrderItem.unitPrice`, never from the product's base price.
+
+### 4.14 `Payment`
 
 Denormalized history of gateway transactions. Mirrored from `Order.paymentStatus` for audit and reconciliation.
 
@@ -636,116 +666,50 @@ Denormalized history of gateway transactions. Mirrored from `Order.paymentStatus
 model Payment {
   id           String   @id @default(cuid())
   orderId      String
-  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
   provider     String   @default("mock_stripe")
-  gatewayTxnId String   @unique
+  sessionId    String   @unique // mock Stripe checkout session (cs_test_...)
+  gatewayTxnId String   @unique // mock payment/refund transaction id
   method       String?
   amount       Int
-  status       String   // initiated | success | failed | cancelled | refunded
-  rawPayload   String   @default("{}")  // JSON of the provider response
+  status       String // initiated | success | failed | cancelled | refunded
   receivedAt   DateTime @default(now())
 
   @@index([orderId])
 }
 ```
 
-### 4.16 `WebhookEvent`
+One `initiated` row is created per checkout session, superseded by a terminal row on confirm/cancel/fail, plus one `refunded` row per refund. `sessionId` is unique, so a checkout session can never produce a duplicate payment.
 
-Idempotent record of every inbound webhook.
-
-```prisma
-model WebhookEvent {
-  id          String    @id @default(cuid())
-  source      String              // pathao
-  eventType   String
-  payload     String              // JSON
-  receivedAt  DateTime  @default(now())
-  processedAt DateTime?
-  status      String    @default("pending") // pending | processed | failed
-  retryCount  Int       @default(0)
-  lastError   String?
-
-  @@index([source, eventType, receivedAt])
-  @@index([status, receivedAt])
-}
-```
-
-> **Note on retention.** SQLite has no TTL index. Expiry is enforced by a scheduled purge job that deletes rows past their retention window (§8.2). This replaces the MongoDB TTL indexes used previously.
-
-### 4.17 `AuditLog`
-
-```prisma
-model AuditLog {
-  id        String   @id @default(cuid())
-  actorId   String?
-  actor     User?    @relation(fields: [actorId], references: [id])
-  actorRole String   // customer | aggregator | qc_staff | admin | system
-  action    String   // e.g. 'order.refund.approve'
-  entity    String   // e.g. 'Order'
-  entityId  String
-  before    String?  // JSON
-  after     String?  // JSON
-  ip        String?
-  userAgent String?
-  createdAt DateTime @default(now())
-
-  @@index([entity, entityId, createdAt])
-  @@index([actorId, createdAt])
-  @@index([createdAt])
-}
-```
-
-### 4.18 `HubClosure`
+### 4.15 `HubClosure`
 
 ```prisma
 model HubClosure {
   id        String   @id @default(cuid())
-  date      DateTime @unique   // date only (Dhaka time)
-  reason    String              // public_holiday | weather | maintenance | ...
-  createdBy String
-  creator   User     @relation(fields: [createdBy], references: [id])
+  date      DateTime @unique // calendar date (midnight Asia/Dhaka)
+  reason    String // public_holiday | weather | maintenance | ...
   createdAt DateTime @default(now())
 }
 ```
 
-Used by `subscription_renewal` and `delivery_assignment` to auto-skip the affected week.
+Used by `subscription_renewal` to auto-skip the affected week. `date` is unique, so a closure cannot be recorded twice for the same day.
 
-### 4.19 `JobRun`
+### 4.16 Tables removed from the earlier draft
 
-```prisma
-model JobRun {
-  id          String   @id @default(cuid())
-  jobName     String
-  startedAt   DateTime @default(now())
-  finishedAt  DateTime?
-  status      String   @default("running") // running | success | failed
-  itemsProcessed Int    @default(0)
-  error       String?
+The following tables appeared in the original 20-model draft of this section. They were removed during the `lean-v1-data-model` change because no endpoint reads them, and each would have to be written to on every request to be worth its cost. This table is the record of that decision.
 
-  @@index([jobName, startedAt])
-}
-```
+| Removed | Reason |
+|---|---|
+| `AuditLog` | Write-only. Refund approval is already visible via `Refund.resolvedBy` / `resolvedAt`; order state changes are visible on the order itself. |
+| `JobRun` | No endpoint reads run history. The app is a single writable instance, so a duplicate-run guard is unnecessary. Job observability is via Sentry and structured logs. |
+| `IdempotencyKey` | The mock gateway is synchronous and single-node. The atomic stock decrement is the real guard against oversell, and `Payment.sessionId` covers checkout replay. |
+| `WebhookEvent` | One webhook source only. `Delivery.courierOrderId` is already unique, so Pathao events are idempotent on arrival. |
+| `AggregatorProfile` | Folded onto `User` as `companyName` and `districts` — one table, one fewer join. |
+| `PasswordReset` | Folded onto `User` as `resetTokenHash` / `resetTokenExpiresAt`. |
 
-Records the outcome of each scheduled job run, replacing the former `job_events` collection and acting as the single-instance lock (§8.1).
+Fields removed from surviving models: `Order.discount` (no promo or discount-code feature in v1), `Order.paymentRef` (superseded by `Payment.sessionId`), `Order.refundRequestedAt` / `Order.refundReason` / `Order.refundedAmount` (refund state now lives on the `Refund` rows), `OrderItem.productId` (derivable via `batchId → productId`), `Payment.rawPayload` (the mock provider returns structured data), `User.emailVerified` / `User.image` (no verification or avatar flow in v1).
 
-### 4.20 `IdempotencyKey`
-
-```prisma
-model IdempotencyKey {
-  id          String   @id @default(cuid())
-  key         String
-  userId      String
-  route       String
-  requestHash String
-  responseBody String?  // JSON
-  statusCode  Int?
-  createdAt   DateTime @default(now())
-  expiresAt   DateTime
-
-  @@unique([key, userId, route])
-  @@index([expiresAt])
-}
-```
+> **`Idempotency-Key` header behaviour.** §6.3 previously required an `Idempotency-Key` header backed by the `idempotency_keys` table. That table is gone, so the header is now advisory: order placement relies on the atomic stock decrement, and mock checkout confirmation is idempotent because `Payment.sessionId` is unique and the confirm route is guarded by the order's current status. A future live-payment integration will need real idempotency-key persistence, and that is a natural moment to reintroduce the table.
 
 ---
 
@@ -842,7 +806,15 @@ Query params: `?cursor=<opaque>&limit=<int 1-100, default 20>`.
 
 ### 6.3 Idempotency
 
-POSTs that create orders, refunds, or payments require an `Idempotency-Key` header. The handler hashes the key + userId + route, and stores the response in the `idempotency_keys` table; subsequent requests with the same key return the stored response. The mock payment confirmation route is idempotent by this mechanism.
+POSTs that create orders, refunds, or payments may carry an `Idempotency-Key` header. In v1 the header is **advisory only** — no response cache is stored, because the `IdempotencyKey` table was removed (§4.16) and the mock gateway is synchronous and single-node.
+
+Idempotency is instead guaranteed by the data model and the write paths themselves:
+
+- **Order placement** relies on the atomic stock decrement (§4.5). A repeated request finds the stock already reserved, the conditional update matches zero rows, and the order is rejected with `out_of_stock` rather than double-reserving.
+- **Mock checkout confirmation** relies on `Payment.sessionId` being unique (§4.14) and on the confirm route being guarded by the order's current status. Confirming an already-paid order returns the existing result and records no duplicate payment.
+- **Payment and refund rows** carry unique `gatewayTxnId` and `gatewayRefundRef` values, so a repeated provider callback cannot create a second transaction row.
+
+A future live-payment integration will need genuine idempotency-key persistence, and reintroducing the `IdempotencyKey` table at that point is the natural place to do it.
 
 ### 6.4 Endpoints
 
@@ -950,7 +922,7 @@ All mock payment routes are idempotent via the `Idempotency-Key` mechanism (§6.
 |---|---|---|---|
 | POST | `/api/webhooks/pathao` | HMAC signature | Pathao order status |
 
-> **No payment webhook.** The mock gateway confirms synchronously (§7.1). A live Stripe integration will add `POST /api/webhooks/stripe` — the `WebhookEvent` table and idempotent processing already accommodate it.
+> **No payment webhook.** The mock gateway confirms synchronously (§7.1). A live Stripe integration will add `POST /api/webhooks/stripe`. That webhook will need genuine replay protection and a signed-payload check, which the removed `WebhookEvent` table (§4.16) was going to provide for a single provider. Adding a `WebhookEvent` table at that point is cleaner than generalising it now.
 
 #### 6.4.10 Reports (admin)
 
@@ -1073,7 +1045,7 @@ All mock payment routes are idempotent via the `Idempotency-Key` mechanism (§6.
 ### 8.1 Job runner
 
 - **v1:** **Vercel Cron** invoking dedicated Route Handlers under `src/app/api/cron/*`. Vercel Cron sends a `GET` request to the configured path; each handler verifies a `CRON_SECRET` bearer token before running.
-- **Single-instance constraint:** SQLite has a single writer, so the app is deployed as a single writable instance for v1. Each job creates a `JobRun` row at start and updates it at finish; a job that finds a `JobRun` for the same `jobName` still `running` within its normal window skips execution (duplicate-run guard, replacing the former Redis-style lock).
+- **Single-instance constraint:** SQLite has a single writer, so the app is deployed as a single writable instance for v1. A single instance cannot run the same job concurrently with itself, so no distributed lock or duplicate-run table is needed; the `JobRun` table was removed (§4.16).
 - **v1.1 (deferred):** migrate to a proper queue (BullMQ/Redis or a hosted equivalent) for retries, backoff, and multi-instance execution.
 - **Note:** Vercel's Hobby plan allows limited cron invocations; the pilot's five daily jobs fit comfortably. If invocation volume becomes a constraint, the move to a queue is the same change already planned for v1.1.
 
@@ -1084,12 +1056,11 @@ All mock payment routes are idempotent via the `Idempotency-Key` mechanism (§6.
 | `tier_recompute` | `/api/cron/tier-recompute` | every 15 min | Re-evaluates all `status=listed` batches; updates `currentTier` and `currentPriceMultiplier`; emits `batch.delisted` events for newly expired batches. |
 | `subscription_renewal` | `/api/cron/subscription-renewal` | daily 02:00 | Creates next-week `orders` for active subscriptions whose `nextDeliveryAt` is in the next 24h. |
 | `delivery_assignment` | `/api/cron/delivery-assignment` | daily 06:00 | Groups next-day paid orders by zone; calls Pathao `order/create` per order. |
-| `webhook_retry` | `/api/cron/webhook-retry` | every 5 min | Retries `WebhookEvent` rows with `status=failed` and `retryCount < 5`, exponential backoff (1m, 5m, 15m, 1h, 6h). |
-| `expiry_sweep` | `/api/cron/expiry-sweep` | daily 03:00 | Purges expired sessions, password-reset tokens, webhook events (>30 days), audit logs (>365 days), and idempotency keys (>24 hours). |
+| `expiry_sweep` | `/api/cron/expiry-sweep` | daily 03:00 | Purges expired sessions and expired password-reset tokens. |
 
 ### 8.3 Event emission
 
-Jobs emit events to the `JobRun` table (job name, duration, items processed, error) for debugging and for the duplicate-run guard. Production observability is via Sentry and structured logs.
+Jobs report their outcome through structured logs (job name, duration, items processed, error). There is no `JobRun` table — no endpoint reads run history, and the app is a single writable instance, so a per-run database record buys nothing (§4.16). Production observability is via Sentry and structured logs.
 
 ### 8.4 Subscription delivery semantics
 
@@ -1302,14 +1273,21 @@ src/app/
 
 ### 10.9 Audit
 
-- All write actions (order, refund, batch state change, user provisioning) emit an `AuditLog`.
-- Refund approval and user suspension are double-audited (actor + resolver both logged).
+There is no `AuditLog` table in v1 (§4.16). The audit trail is carried by the business records themselves, which is why those tables are kept as records rather than being overwritten:
+
+- Refund approval is recorded on the `Refund` row as `requestedBy` / `requestedByRole` and `resolvedBy` / `resolvedAt`, so both the requester and the resolver are captured.
+- Order state transitions are recorded on the `Order` row via `status`, `placedAt`, `paidAt`, `deliveredAt`, and `cancelReason`.
+- Payment history is recorded as `Payment` rows, one per gateway transaction.
+- Batch state changes are recorded on the `Batch` row (`status`, `qcStatus`, `listedAt`) and in `BatchQcLog`, which is an append-only inspection history.
+- User provisioning and suspension are recorded on the `User` row (`role`, `status`, `createdAt`, `lastLoginAt`).
+
+Structured logs capture the request-level context that the tables deliberately omit (actor IP, user agent, request id).
 
 ### 10.10 Clock skew & timestamp policy
 
 - All `Date` values are stored in UTC. `harvestDate` is **date-only** (midnight in `Asia/Dhaka`) and is treated as a calendar date, not a moment.
 - Server time is synced via NTP; tolerance is ± 60 s. The decay cron uses server-local UTC but reports its "Dhaka time" via `Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' })`.
-- Inbound webhooks carry their own timestamps from the source (Pathao). The server trusts the source timestamp for the entity but records `receivedAt` (server UTC) on `WebhookEvent` for ordering.
+- Inbound webhooks carry their own timestamps from the source (Pathao). The server trusts the source timestamp for the entity but records `lastWebhookAt` (server UTC) on `Delivery` for ordering.
 - Webhooks are **not** guaranteed in order. State transitions are written defensively (only `pending → paid`, `created → in_transit`, etc., never backwards). Stale webhooks (> 30 min older than the current entity state) are logged but not applied.
 
 ### 10.11 Failure handling
@@ -1322,15 +1300,16 @@ src/app/
 
 | Data | Retention | Mechanism |
 |---|---|---|
-| Orders, refunds, payments | Indefinite (business record) | None |
-| Audit logs | 365 days | `expiry_sweep` job |
-| Webhook events | 30 days | `expiry_sweep` job |
+| Orders, order items, refunds, refund items, payments | Indefinite (business record) | None |
+| Deliveries | Indefinite (business record) | None |
+| Batch QC logs | Indefinite (inspection history) | None |
 | Password reset tokens | 24 h after expiry | `expiry_sweep` job |
 | Sessions | 30 days (rolling) | `expiry_sweep` job + delete-on-logout |
-| Idempotency keys | 24 hours | `expiry_sweep` job |
 | Customer PII (name, email, phone, address) | Account lifetime + 30 days after deletion request | Manual purge on support request until v1.1 export/deletion endpoints |
 | Cloudinary assets (product images, QC photos) | Indefinite | Manual cleanup; QC photos attached to a `batch_qc_log` are kept as long as the log |
 | Sentry events | 90 days (Sentry default) | Sentry-side retention |
+
+> **Audit logs, webhook events, and idempotency keys have no retention row** because those tables were removed from the v1 model (§4.16). The audit trail now lives on the business records themselves (§10.9), Pathao webhook idempotency is enforced by the unique `Delivery.courierOrderId` constraint, and checkout replay is guarded by the unique `Payment.sessionId`.
 
 A documented `scripts/purge-account.js` script is provided for manual PII purge on support request, ahead of the v1.1 self-service endpoints.
 
@@ -1490,6 +1469,8 @@ A documented `scripts/purge-account.js` script is provided for manual PII purge 
 
 - A `prisma/seed.js` script seeds dev/staging with: 1 admin, 2 aggregators, 2 qc_staff, 5 customers, 10 products, 3 active plans, 20 batches at various tier states.
 - No real PII in test data.
+
+> **`prisma/seed.js` is outstanding.** It is required by this section but is not implemented as part of the `lean-v1-data-model` change, which delivers the schema contract only. The seed is a separate change and must be written against the 15-model schema in `prisma/schema.prisma` (§4), not the earlier 20-model draft.
 
 ---
 

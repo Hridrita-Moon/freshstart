@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx openspec:*)",
+      "Bash(npx prisma:*)",
+      "Bash(node .schema-verify.cjs)",
+      "Bash(npx bmad-method:*)"
+    ]
+  }
+}

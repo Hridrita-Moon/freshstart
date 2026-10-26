@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-26
+goal: Establish the v1 data model in prisma/schema.prisma so application code
+  can be built against a stable contract.

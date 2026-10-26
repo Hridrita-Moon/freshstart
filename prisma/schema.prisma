@@ -1,3 +1,20 @@
+// FreshTrace — Lean v1 data model
+//
+// Stack: Next.js (App Router, JS) + Prisma + SQLite
+// Source of truth: SRS.md §4
+//
+// Conventions
+// - cuid() string primary keys.
+// - Money is integer BDT (Int). Never Float.
+// - Quantities are Float (kg can be fractional).
+// - Enum-like fields are String + app-level allowlist (SQLite has no enums).
+// - harvestDate / date fields are calendar dates (midnight Asia/Dhaka).
+// - Referential actions are declared explicitly, never left implicit.
+//   Dependent child rows use Cascade (Session, Address, BatchQcLog,
+//   OrderItem, RefundItem). Business records keep Restrict (Order, Refund,
+//   Payment, Delivery), so a paid order cannot lose its payment or refund
+//   history by being deleted out from under them.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,34 +24,328 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Identity & auth ────────────────────────────────────────────────────────
+
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  orders        Order[]
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  phone        String?
+  role         String    @default("customer") // customer | aggregator | qc_staff | admin
+  status       String    @default("active") // active | suspended
+  lastLoginAt  DateTime?
+
+  // Aggregator-only fields (null for other roles)
+  companyName String?
+  districts   String? // JSON array of allowed origin districts
+
+  // Single-use password reset (SRS §3.5)
+  resetTokenHash      String?
+  resetTokenExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions        Session[]
+  addresses       Address[]
+  orders          Order[]
+  subscriptions   Subscription[]
+  batches         Batch[]        @relation("AggregatorBatches")
+  qcLogs          BatchQcLog[]
+  refunds         Refund[]       @relation("RefundRequester")
+  resolvedRefunds Refund[]       @relation("RefundResolver")
+
+  @@index([role, status])
 }
+
+/// Server-side session. The raw token lives only in the httpOnly `ft_session`
+/// cookie; this row stores only its SHA-256 hash.
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ─── Catalogue ──────────────────────────────────────────────────────────────
 
 model Product {
-  id            String   @id @default(cuid())
-  name          String
-  category      String
-  price         Float
-  harvestDate   DateTime
-  origin        String
-  freshnessTier String   @default("Tier-1")
-  stock         Int      @default(0)
-  createdAt     DateTime @default(now())
+  id                 String   @id @default(cuid())
+  sku                String   @unique
+  name               String
+  category           String // fruit | vegetable | other
+  defaultUnit        String   @default("kg") // kg | piece | bunch
+  baseUnitPrice      Int // BDT
+  imageUrl           String?
+  description        String?
+  originDistrict     String?
+  harvestToShelfDays Int      @default(5) // days from harvest to delist (decay engine)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  batches Batch[]
+
+  @@index([category, isActive])
 }
 
+/// A physical lot of one product from one aggregator. Stock lives here
+/// (`availableQty`) and is decremented atomically at order placement.
+model Batch {
+  id                     String    @id @default(cuid())
+  productId              String
+  product                Product   @relation(fields: [productId], references: [id])
+  aggregatorId           String
+  aggregator             User      @relation("AggregatorBatches", fields: [aggregatorId], references: [id])
+  batchCode              String    @unique // human-readable, e.g. 'FT-MNG-2026-10-09-A1'
+  qrSlug                 String    @unique // short slug encoded in the printed QR
+  harvestDate            DateTime // calendar date (midnight Asia/Dhaka)
+  originDistrict         String
+  inboundQty             Float // kg at receiving
+  availableQty           Float // kg remaining
+  qcStatus               String    @default("pending") // pending | passed | failed
+  currentTier            String? // fresh | good | fair | near_expiry | expired
+  currentPriceMultiplier Float     @default(1.0) // 1.0 | 0.8 | 0.6 | 0.3 | 0.0
+  status                 String    @default("in_transit") // in_transit | listed | delisted | sold_out
+  inboundAt              DateTime?
+  listedAt               DateTime?
+  expiresAt              DateTime? // harvestDate + harvestToShelfDays
+  qrImageUrl             String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  qcLogs BatchQcLog[]
+  items  OrderItem[]
+
+  @@index([status, expiresAt])
+  @@index([aggregatorId, status])
+  @@index([productId, status, currentTier])
+}
+
+/// One QC inspection. A failed batch may be re-inspected, producing a new log.
+model BatchQcLog {
+  id           String   @id @default(cuid())
+  batchId      String
+  batch        Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  inspectorId  String
+  inspector    User     @relation(fields: [inspectorId], references: [id])
+  inspectedAt  DateTime @default(now())
+  grade        String // A | B | C
+  weightKg     Float
+  temperatureC Float?
+  passed       Boolean
+  notes        String?
+  photos       String? // JSON array of Cloudinary URLs
+  createdAt    DateTime @default(now())
+
+  @@index([batchId, inspectedAt])
+}
+
+// ─── Subscriptions ──────────────────────────────────────────────────────────
+
+model SubscriptionPlan {
+  id          String   @id @default(cuid())
+  name        String // 'Couple Weekly', 'Family Weekly', 'Family Premium'
+  basketSize  String // small | medium | large
+  weeklyPrice Int // BDT, fresh-tier price (a maximum, not a fixed charge)
+  description String?
+  composition String   @default("[]") // JSON array of { productId, defaultQty }
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id             String           @id @default(cuid())
+  customerId     String
+  customer       User             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  planId         String
+  plan           SubscriptionPlan @relation(fields: [planId], references: [id])
+  addressId      String
+  address        Address          @relation(fields: [addressId], references: [id])
+  dayOfWeek      Int // 0 = Sunday, 6 = Saturday
+  status         String           @default("active") // active | paused | ended
+  nextDeliveryAt DateTime
+  pauseUntil     DateTime?
+  startedAt      DateTime         @default(now())
+  endedAt        DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  orders Order[]
+
+  @@index([customerId, status])
+  @@index([status, nextDeliveryAt])
+}
+
+// ─── Addresses ──────────────────────────────────────────────────────────────
+
+model Address {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String   @default("Home")
+  line1         String
+  line2         String?
+  area          String // e.g. 'Gulshan-2'
+  city          String   @default("Dhaka")
+  geoLat        Float?
+  geoLng        Float?
+  deliveryNotes String?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@index([userId, isDefault])
+}
+
+// ─── Orders & fulfilment ────────────────────────────────────────────────────
+
 model Order {
+  id              String        @id @default(cuid())
+  orderCode       String        @unique // human-readable, e.g. 'FT-ORD-2026-10-09-0001'
+  customerId      String
+  customer        User          @relation(fields: [customerId], references: [id])
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  addressSnapshot String        @default("{}") // JSON snapshot of the address at order time
+  subtotal        Int
+  deliveryFee     Int           @default(0)
+  grandTotal      Int
+  paymentStatus   String        @default("pending") // pending | paid | failed | refunded | partially_refunded
+  paymentMethod   String? // card | bkash | nagad (mock)
+  status          String        @default("pending_payment") // pending_payment | paid | in_fulfillment | in_transit | delivered | cancelled | refunded
+  placedAt        DateTime      @default(now())
+  paidAt          DateTime?
+  deliveredAt     DateTime?
+  cancelReason    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items    OrderItem[]
+  delivery Delivery?
+  payments Payment[]
+  refunds  Refund[]
+
+  @@index([customerId, placedAt])
+  @@index([status, placedAt])
+  @@index([paymentStatus])
+}
+
+/// One purchased line. `unitPrice` is the tier-discounted price actually
+/// charged; refunds use this, never the undiscounted product price.
+model OrderItem {
+  id                   String @id @default(cuid())
+  orderId              String
+  order                Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  batchId              String
+  batch                Batch  @relation(fields: [batchId], references: [id])
+  name                 String // denormalized at order time
+  qty                  Float
+  unitPrice            Int // BDT, after tier discount
+  lineTotal            Int // BDT
+  freshnessTierAtOrder String // fresh | good | fair | near_expiry
+
+  refundItems RefundItem[]
+
+  @@index([orderId])
+}
+
+model Delivery {
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  courier           String    @default("pathao")
+  courierOrderId    String?   @unique
+  courierTrackingId String?
+  courierStatus     String    @default("created") // created | picked_up | in_transit | delivered | cancelled | failed
+  assignedAt        DateTime  @default(now())
+  pickedUpAt        DateTime?
+  deliveredAt       DateTime?
+  riderInfo         String? // JSON { name, phone }
+  lastWebhookAt     DateTime?
+  failureReason     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+// ─── Payments (local mock Stripe) ───────────────────────────────────────────
+
+/// Mock-gateway transaction log. One `initiated` row per checkout session,
+/// superseded by a terminal row on confirm/cancel/fail, plus one `refunded`
+/// row per refund.
+model Payment {
+  id           String   @id @default(cuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  provider     String   @default("mock_stripe")
+  sessionId    String   @unique // mock Stripe checkout session (cs_test_...)
+  gatewayTxnId String   @unique // mock payment/refund transaction id
+  method       String?
+  amount       Int
+  status       String // initiated | success | failed | cancelled | refunded
+  receivedAt   DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// ─── Refunds ────────────────────────────────────────────────────────────────
+
+model Refund {
+  id               String    @id @default(cuid())
+  orderId          String
+  order            Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  requestedBy      String
+  requester        User      @relation("RefundRequester", fields: [requestedBy], references: [id])
+  requestedByRole  String // customer | qc_staff | admin
+  reason           String
+  amount           Int
+  status           String    @default("requested") // requested | approved | rejected | processed
+  resolvedBy       String?
+  resolver         User?     @relation("RefundResolver", fields: [resolvedBy], references: [id])
+  resolvedAt       DateTime?
+  gatewayRefundRef String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  items RefundItem[]
+
+  @@index([orderId])
+  @@index([status, createdAt])
+}
+
+/// Per-line refund breakdown. Amounts are derived from the order item's
+/// tier-discounted `unitPrice`, never from the base product price.
+model RefundItem {
+  id          String    @id @default(cuid())
+  refundId    String
+  refund      Refund    @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+  qty         Float
+  amount      Int // BDT
+}
+
+// ─── Hub schedule ───────────────────────────────────────────────────────────
+
+/// A day the QC hub is closed. Subscription renewals on these dates are
+/// skipped and advanced by 7 days.
+model HubClosure {
   id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  total     Float
-  status    String   @default("PENDING")
+  date      DateTime @unique // calendar date (midnight Asia/Dhaka)
+  reason    String // public_holiday | weather | maintenance | ...
   createdAt DateTime @default(now())
 }
