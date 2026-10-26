@@ -1,8 +1,8 @@
 # FreshTrace — Product Requirements Document
 
-**Status:** v0.1 — pre-pre-pilot
+**Status:** v0.2 — pre-pre-pilot
 **Owner:** Founding team (Technical Co-founder, Business/Ops Co-founder)
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-26
 
 > **Note on this document.** This PRD is the output of a structured product-decision process. The original one-page project brief (`FreshTrace_Project_Brief.pdf`) proposed a sensor-based B2B quality-intelligence system. After review, the founding team chose a different shape: a hybrid farm-to-table e-commerce marketplace with a freshness-intelligence supporting layer, and a concierge-MVP pilot-first build sequence. This PRD reflects the *revised* product, not the brief as originally written. The brief should be updated to match this document before any external use.
 
@@ -78,7 +78,7 @@ FreshTrace is a **hybrid e-commerce + freshness-intelligence platform**. The pro
 ### 5.1 v1 — In scope (Lean Marketplace + 1 Hub)
 
 **Customer-facing:**
-- Mobile-responsive web marketplace (Next.js, Tailwind CSS).
+- Mobile-responsive web marketplace (Next.js App Router, JavaScript, Tailwind CSS v4).
 - Product browsing, search, basket details, freshness tier display, origin display.
 - Subscription management (weekly recurring baskets; tier selection; pause / cancel).
 - One-off ordering (in addition to subscription).
@@ -104,9 +104,11 @@ FreshTrace is a **hybrid e-commerce + freshness-intelligence platform**. The pro
 - Receiving → QC → list-to-consumer workflow, all logged in the admin panel.
 
 **Integrations (v1):**
-- Payment gateway via SSLCOMMERZ (aggregating bKash, Nagad, and cards). Specific merchant account to be opened in Phase 0.
+- **Local mock Stripe checkout.** Checkout is built against the Stripe Checkout API shape but runs entirely against a local, in-process mock — no Stripe account, API keys, or network calls. Orders are created as `PENDING` and moved to `PAID` by a local simulated payment confirmation step. This keeps the full checkout UX (cart → checkout → order confirmation) buildable and testable before a real merchant account exists. A real Stripe account and live keys remain a Phase 0 procurement item; swapping the mock for live Stripe is a contained change because the payment provider boundary is kept behind a single module.
 - Last-mile delivery via Pathao and/or Steadfast, with tariff terms negotiated in Phase 0.
 - QR code generation (per batch, links to public product page).
+
+> **Why a mock gateway in v1.** The pilot's critical path is *checkout that works*, not *payment rails that settle*. A local mock removes merchant onboarding (BDT/company paperwork, settlement accounts) from the engineering critical path while preserving the order-state machine, refunds, and reconciliation logic. The commercial reality (bKash/Nagad/card coverage in Bangladesh, SSLCOMMERZ or Stripe Bangladesh availability) is a Phase 0 business task, not an architecture constraint.
 
 ### 5.2 v1 — Explicit non-goals
 
@@ -153,7 +155,7 @@ Built as a per-basket cost stack, in a spreadsheet, with every line item assigne
 | 5 | Hub facility + cold room | Quoted rent (Uttara / Mohammadpur) | **Team to verify** |
 | 6 | Packaging | Easy to estimate | Estimable today |
 | 7 | Last-mile delivery | Tariff quote from Pathao/Steadfast (3–5 kg, Gulshan/Uttara) | Estimable today (quotes needed) |
-| 8 | Payment gateway fees | SSLCOMMERZ/bKash/Nagad — 1.5–2% | Known (1.5–2%) |
+| 8 | Payment gateway fees | SSLCOMMERZ/Stripe — 1.5–2% (assumed; mock gateway in v1 incurs none) | Known (1.5–2%) |
 | 9 | Spoilage / waste | Measured in pre-pilot dry run | **Team to measure (Phase 0)** |
 | 10 | Customer refunds / replacements | Pilot refund rate | **Team to measure (Phase 0)** |
 | 11 | **Total unit cost** | Sum of 1–10 | — |
@@ -174,7 +176,7 @@ A small operational test before the formal 90-day pilot. Estimated cost: BDT 15,
 ### 6.3 Other Phase 0 deliverables
 
 - QC hub candidate site identified (Uttara or Mohammadpur) with quoted rent and signed short-term lease.
-- SSLCOMMERZ merchant account opened (or alternative payment gateway signed).
+- Payment gateway decision closed: Stripe account opened (preferred) **or** SSLCOMMERZ/bKash/Nagad merchant account opened. The v1 build itself is not blocked on this — the mock gateway ships first and the live provider is swapped in behind the same module boundary.
 - 1 primary + 1–2 fallback aggregator LOIs signed.
 - Customer-acquisition channel validated: the 30–50 family network is confirmed (named, not just "we know people").
 - Pilot pricing confirmed at BDT 1,200–1,800 weekly basket; pilot basket composition (~4–5 kg, 6–8 SKUs) confirmed.
@@ -235,20 +237,25 @@ If Gate B is missed on the critical metrics, the founding team commits to a docu
 
 | Layer | Choice | Rationale |
 |---|---|---|
-| Frontend (consumer) | Next.js (React) + Tailwind CSS | Mobile-responsive web; SSR for SEO and product pages; team familiarity |
-| Frontend (partner dashboard) | Next.js (React) | Shared codebase with consumer frontend |
-| Backend | Node.js + Express (RESTful APIs) | Team familiarity; rapid iteration |
-| Database | MongoDB (MERN stack) | Document model fits batch / metadata flexibility; team familiarity |
-| Auth | JWT-based authentication | Standard, sufficient for v1 |
-| Hosting | Vercel (frontend) + Render (backend) | Low ops overhead; matches v1 team size |
-| Payments | SSLCOMMERZ (aggregating bKash, Nagad, cards) | BD-specific; team-confirmed gateway |
+| Framework | Next.js 16 (App Router) | Mobile-responsive web; SSR for SEO and product pages; one deployable unit instead of separate frontend/backend services |
+| Language | JavaScript (`.js` / `.jsx`) | Team fluency and velocity; no separate type-checking step. JSDoc annotations used where types aid clarity |
+| Styling | Tailwind CSS v4 (CSS-first `@theme` config) | Utility-first, fast iteration; v4's native engine removes the legacy `tailwind.config.js` indirection |
+| UI primitives | HeroUI (React) | Accessible, composable components that wrap Tailwind cleanly; avoids hand-rolling form/dialog/table primitives |
+| Data access | Prisma ORM | Typed-by-schema client over the database; first-class migrations and seed tooling |
+| Database | **SQLite** (local file, via Prisma) | Zero-ops single-file database; sufficient for a single-hub pilot. Relational integrity suits orders/batches/stock. Migration path to Postgres exists if the team outgrows it |
+| Backend / API | **Next.js Route Handlers** (App Router `app/api/*`) | No separate Express server — domain logic runs server-side in the same Next.js process, removing an entire deployment tier and the network hop between UI and API |
+| Auth | **Custom lightweight session auth** | Database-backed sessions + httpOnly cookie. Better Auth has been **removed** from the stack: its plugin/adapter surface is unnecessary for four roles and a single-provider model, and it would add a dependency to a project already leaning deliberately small |
+| Hosting | Vercel (single Next.js app) | Low ops overhead; matches v1 team size and the single-deployable-unit architecture |
+| Payments | **Local mock Stripe checkout** | Stripe-compatible local checkout module; no merchant account, keys, or network calls required to build and demo the full checkout flow |
 | QR | Server-generated per batch; links to public product page | Simple, no third-party QR service required |
+
+> **Stack-change rationale.** The v1 architecture is a **single Next.js application** — no separate Express backend, no MongoDB Atlas, no managed Redis. All three were removed because a 30–50 family pilot running one hub does not justify the operational surface of a distributed backend, and because every one of them added failure modes (network hop, replica lag, cross-service session sharing) that the product does not need. SQLite via Prisma gives relational integrity, migrations, and a generated client with none of the infrastructure.
 
 ### 8.2 v1 team shape
 
 | Role | Count | Full-time / part-time |
 |---|---|---|
-| Technical co-founder (full-stack engineer, MERN/Next.js) | 1 | Full-time |
+| Technical co-founder (full-stack engineer, Next.js / Prisma) | 1 | Full-time |
 | Business / Ops co-founder (QC hub + supply chain + Dhaka ops) | 1 | Full-time |
 | Engineers (frontend / backend, supporting tech co-founder) | 3–5 | Full-time |
 | Operations lead (delivery coordination, customer support, refund ops) | 1 | Full-time |
@@ -271,7 +278,7 @@ If Gate B is missed on the critical metrics, the founding team commits to a docu
 |---|---|---|---|
 | **0 — Pre-pilot** | Month 0, weeks 1–4 | Build unit-cost model; lock 1–2 aggregator agreements; scout 2–3 hub sites; run 1-week dry run; open payment merchant account; confirm pilot customer network | **Gate A:** cost model complete, dry run done, 2 aggregator LOIs signed, ≥ 1 hub site with quoted rent, pilot network confirmed |
 | **1 — Pilot** | Month 1–3 (90 days) | Concierge MVP, 30–50 families, manual/semi-manual, 1 hub, 1 aggregator, BDT 1,200–1,800 baskets, network acquisition, weekly measurement against 7 success criteria + 2 diagnostics | **Gate B:** ≥ 5 of 7 success criteria hit, with reorder rate, gross margin, and QC pass rate all at or above target |
-| **2 — v1 build** | Month 4–6 (90 days) | Lean v1 build: customer web app, aggregator dashboard, admin/QC panel, basic QR product pages, SSLCOMMERZ integration, subscription management, rule-based pricing engine. MERN / Next.js, Vercel / Render. | **Gate C:** internal alpha live, 4 core flows tested end-to-end, 5 pilot customers migrated, 1 week of production QC data |
+| **2 — v1 build** | Month 4–6 (90 days) | Lean v1 build: customer web app, aggregator dashboard, admin/QC panel, basic QR product pages, mock Stripe checkout integration, subscription management, rule-based pricing engine. Next.js App Router (JavaScript) + Prisma/SQLite + Tailwind v4 on Vercel. | **Gate C:** internal alpha live, 4 core flows tested end-to-end, 5 pilot customers migrated, 1 week of production QC data |
 | **3 — v1 launch** | Month 7–9 | Open v1 to pilot customers + their network referrals. Network-driven acquisition. Target: 200 active subscribers by end of month 9. | **Gate D:** 200 active subscribers, gross margin ≥ 25%, refund rate < 8% |
 | **4 — v1 scale** | Month 10–12 | Continue v1 operations, drive toward 500 active subscribers. Iterate on product from diagnostic signals. | **Gate E:** 500 active subscribers, gross margin ≥ 25%, refund rate < 5%, NPS > 30 |
 
@@ -283,7 +290,7 @@ If Gate B is missed on the critical metrics, the founding team commits to a docu
 
 ### 10.1 Founding team (committed for v1)
 
-- **Technical co-founder:** full-stack engineer, MERN/Next.js, leads the v1 build and platform engineering.
+- **Technical co-founder:** full-stack engineer, Next.js/Prisma, leads the v1 build and platform engineering.
 - **Business / Ops co-founder:** leads Dhaka QC hub operations, aggregator relationships, supply chain, and pilot operations.
 
 ### 10.2 Funding (committed / in active discussion)
@@ -327,7 +334,7 @@ This section lists everything the PRD assumes to be true that the team has not y
 | 5 | Specific QC hub site in Uttara or Mohammadpur not yet scouted | Hub lease terms gate pilot operations | Business co-founder | Phase 0, week 3 |
 | 6 | Funding source committed or in discussion but not yet closed | Runway gates the v1 build | Both co-founders | Before Phase 1 starts |
 | 7 | Founding team named at role level; specific individuals not disclosed in this document | Plan needs confirmed people, not roles | Both co-founders | Internal confirmation before pilot |
-| 8 | SSLCOMMERZ / bKash / Nagad merchant account not yet opened | Payment integration is on the v1 critical path | Technical co-founder | Phase 0, week 3 |
+| 8 | Live payment gateway account not yet opened (Stripe preferred; SSLCOMMERZ/bKash/Nagad as BD alternatives) | The v1 build ships against a local mock gateway, so this blocks **real money collection**, not the build. Still required before the pilot charges actual customers | Business co-founder | Phase 0, week 3 |
 | 9 | Last-mile courier tariff quotes (Pathao / Steadfast) not yet obtained | #7 in the cost stack is the second-biggest cost | Business co-founder | Phase 0, week 2 |
 | 10 | Jashore / Bogura cooperative contact not yet named (relationship-type only) | Aggregator identity is the supply-side critical path | Business co-founder | Phase 0, week 1 |
 | 11 | Pilot customer network (30–50 families) not yet explicitly confirmed | Pilot has no customers without this | Business co-founder | Phase 0, week 4 |
@@ -347,8 +354,10 @@ This section lists everything the PRD assumes to be true that the team has not y
 - **v1:** the lean marketplace build described in Section 8. Built in Phase 2.
 - **Gate A / B / C / D / E:** the pre-committed go/no-go checkpoints at the end of each phase (Section 9).
 - **BDT:** Bangladeshi Taka. Indicative ranges in this document are based on team assumptions where marked "team to verify."
-- **MERN:** MongoDB, Express, React, Node.js — the full-stack JavaScript framework variant the v1 build is based on.
-- **SSLCOMMERZ:** Bangladesh-based payment gateway aggregator that integrates bKash, Nagad, and card payments for online merchants.
+- **Stack:** Next.js 16 (App Router) in JavaScript + Tailwind CSS v4 + HeroUI + Prisma ORM over SQLite, deployed as a single application on Vercel.
+- **Mock Stripe checkout:** the local, offline stand-in for Stripe Checkout used in v1. Mirrors the Stripe Checkout request/response shape so that replacing it with live Stripe is a provider swap, not a rewrite.
+- **Stripe:** the preferred live payment provider for the pilot. Not yet provisioned; v1 uses the mock.
+- **SSLCOMMERZ:** Bangladesh-based payment gateway aggregator that integrates bKash, Nagad, and card payments. Retained as a BD-specific alternative to Stripe.
 - **bKash / Nagad:** Bangladesh's two dominant mobile financial services platforms.
 - **CAC:** Customer Acquisition Cost — total marketing / sales spend divided by number of new paying customers in a given period.
 - **NPS:** Net Promoter Score — a measure of customer satisfaction and likelihood to recommend, on a -100 to +100 scale.
@@ -356,4 +365,4 @@ This section lists everything the PRD assumes to be true that the team has not y
 
 ---
 
-*End of PRD v0.1.*
+*End of PRD v0.2.*
