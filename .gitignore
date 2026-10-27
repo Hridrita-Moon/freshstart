@@ -13,6 +13,12 @@
 # testing
 /coverage
 
+# local SQLite databases (dev and test)
+/prisma/*.db
+/prisma/*.db-journal
+/prisma/*.db-shm
+/prisma/*.db-wal
+
 # next.js
 /.next/
 /out/

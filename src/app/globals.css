@@ -1,27 +1,160 @@
 @import "tailwindcss";
-@source "../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
+@import "@heroui/react/styles";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * FreshTrace design tokens.
+ *
+ * Tailwind CSS v4 is configured CSS-first — there is no `tailwind.config.js`
+ * (SRS §9.5). The theme is declared with `@theme` here, and Tailwind's
+ * automatic source detection handles class discovery.
+ *
+ * The palette is a clean light theme built around a fresh green (the brand),
+ * warm neutrals for surfaces, and a semantic set for the freshness tiers.
+ */
+
+@theme {
+  /* ── Brand ─────────────────────────────────────────────────────────── */
+  --color-brand-50: #f0fdf4;
+  --color-brand-100: #dcfce7;
+  --color-brand-200: #bbf7d0;
+  --color-brand-300: #86efac;
+  --color-brand-400: #4ade80;
+  --color-brand-500: #22c55e;
+  --color-brand-600: #16a34a;
+  --color-brand-700: #15803d;
+  --color-brand-800: #166534;
+  --color-brand-900: #14532d;
+  --color-brand-950: #052e16;
+
+  /* ── Neutrals (warm) ──────────────────────────────────────────────── */
+  --color-sand-50: #fafaf9;
+  --color-sand-100: #f5f5f4;
+  --color-sand-200: #e7e5e4;
+  --color-sand-300: #d6d3d1;
+  --color-sand-400: #a8a29e;
+  --color-sand-500: #78716c;
+  --color-sand-600: #57534e;
+  --color-sand-700: #44403c;
+  --color-sand-800: #292524;
+  --color-sand-900: #1c1917;
+  --color-sand-950: #0c0a09;
+
+  /* ── Freshness tiers ──────────────────────────────────────────────── */
+  /* fresh      — just harvested, full price */
+  --color-fresh-50: #ecfdf5;
+  --color-fresh-100: #d1fae5;
+  --color-fresh-500: #10b981;
+  --color-fresh-600: #059669;
+  --color-fresh-700: #047857;
+  --color-fresh-800: #065f46;
+
+  /* good       — 2–3 days old, slight discount */
+  --color-good-50: #f0fdf4;
+  --color-good-100: #dcfce7;
+  --color-good-500: #22c55e;
+  --color-good-600: #16a34a;
+  --color-good-700: #15803d;
+  --color-good-800: #166534;
+
+  /* fair       — 4–5 days old, deeper discount */
+  --color-fair-50: #fffbeb;
+  --color-fair-100: #fef3c7;
+  --color-fair-500: #f59e0b;
+  --color-fair-600: #d97706;
+  --color-fair-700: #b45309;
+  --color-fair-800: #92400e;
+
+  /* near_expiry — shelf life nearly over, marked down */
+  --color-near-expiry-50: #fff7ed;
+  --color-near-expiry-100: #ffedd5;
+  --color-near-expiry-500: #f97316;
+  --color-near-expiry-600: #ea580c;
+  --color-near-expiry-700: #c2410c;
+  --color-near-expiry-800: #9a3412;
+
+  /* expired    — delisted, shown for transparency only */
+  --color-expired-50: #fef2f2;
+  --color-expired-100: #fee2e2;
+  --color-expired-500: #ef4444;
+  --color-expired-600: #dc2626;
+  --color-expired-700: #b91c1c;
+  --color-expired-800: #991b1b;
+
+  /* ── Typography ───────────────────────────────────────────────────── */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* ── Radii ────────────────────────────────────────────────────────── */
+  --radius-card: 1rem;
+
+  /* ── Shadows ──────────────────────────────────────────────────────── */
+  --shadow-soft: 0 1px 2px 0 rgb(28 25 23 / 0.04), 0 1px 3px 0 rgb(28 25 23 / 0.06);
+  --shadow-lifted: 0 4px 6px -1px rgb(28 25 23 / 0.07), 0 2px 4px -2px rgb(28 25 23 / 0.05);
+  --shadow-float: 0 10px 15px -3px rgb(28 25 23 / 0.08), 0 4px 6px -4px rgb(28 25 23 / 0.05);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  /* HeroUI v3 reads its semantic colours from these variables. */
+  --color-primary: var(--color-brand-600);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--color-sand-100);
+  --color-secondary-foreground: var(--color-sand-900);
+  --color-muted: var(--color-sand-100);
+  --color-muted-foreground: var(--color-sand-500);
+  --color-accent: var(--color-brand-600);
+  --color-accent-foreground: #ffffff;
+  --color-danger: var(--color-expired-600);
+  --color-danger-foreground: #ffffff;
+  --color-success: var(--color-fresh-600);
+  --color-success-foreground: #ffffff;
+  --color-warning: var(--color-fair-600);
+  --color-warning-foreground: #ffffff;
+  --color-border: var(--color-sand-200);
+  --color-border-input: var(--color-sand-200);
+  --color-ring: var(--color-brand-500);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/*
+ * The app is a clean light theme. The dark-mode block from the starter is
+ * removed deliberately — this is a product decision, not an oversight, so the
+ * palette stays predictable across the whole catalogue.
+ */
+:root {
+  --background: #ffffff;
+  --foreground: #1c1917;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* A consistent, visible focus ring across the whole app. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
 }

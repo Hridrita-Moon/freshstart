@@ -1,0 +1,2039 @@
+diff --git a/src/app/(auth)/AuthShell.jsx b/src/app/(auth)/AuthShell.jsx
+new file mode 100644
+index 0000000..71cfaf1
+--- /dev/null
++++ b/src/app/(auth)/AuthShell.jsx
+@@ -0,0 +1,146 @@
++import Link from "next/link";
++import { Leaf, MapPin, Sprout, Truck } from "lucide-react";
++
++/**
++ * AuthShell — the shared split-screen layout for `/login` and `/register`.
++ *
++ * SRS §9.1 places both auth pages in the `(auth)` route group, outside the
++ * customer shell, so a signed-out visitor never sees the catalogue header.
++ *
++ * The layout is a two-column grid on `lg` and above and a single stacked
++ * column below it, so the same markup works from 320 px up.
++ *
++ * Glassmorphism idiom: `backdrop-blur-md bg-white/70 border border-white/40
++ * shadow-xl` over a soft brand/sand gradient. The blur only reads as glass
++ * when there is colour behind it, so the ambient gradient and the blurred
++ * colour blobs sit *behind* the cards.
++ *
++ * @param {object} props
++ * @param {import("react").ReactNode} props.children the form slot
++ * @param {string} props.title
++ * @param {string} props.subtitle
++ * @param {import("react").ReactNode} [props.footer]
++ */
++export default function AuthShell({ children, title, subtitle, footer }) {
++  return (
++    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-brand-50 via-sand-50 to-brand-100">
++      {/* ── Ambient colour blobs ───────────────────────────────────────
++          These sit behind the cards so `backdrop-blur` has something to
++          diffuse. They are decorative only. */}
++      <div
++        className="pointer-events-none absolute -left-24 -top-24 size-80 rounded-full bg-brand-300/40 blur-3xl"
++        aria-hidden="true"
++      />
++      <div
++        className="pointer-events-none absolute -bottom-32 -right-16 size-96 rounded-full bg-fair-500/20 blur-3xl"
++        aria-hidden="true"
++      />
++      <div
++        className="pointer-events-none absolute left-1/2 top-1/3 size-72 -translate-x-1/2 rounded-full bg-brand-200/40 blur-3xl"
++        aria-hidden="true"
++      />
++
++      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
++        {/* ── Brand ───────────────────────────────────────────────────── */}
++        <Link
++          href="/app/products"
++          className="mb-8 flex items-center gap-2 font-semibold tracking-tight text-sand-900"
++        >
++          <span className="flex size-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-soft">
++            <Leaf className="size-5" aria-hidden="true" />
++          </span>
++          <span className="text-xl">FreshTrace</span>
++        </Link>
++
++        <div className="grid w-full items-center gap-8 lg:grid-cols-2 lg:gap-14">
++          {/* ── Form column ──────────────────────────────────────────── */}
++          <div className="w-full">
++            <div className="rounded-card border border-white/40 bg-white/70 p-6 shadow-xl backdrop-blur-md sm:p-8">
++              <h1 className="text-2xl font-semibold tracking-tight text-sand-900">
++                {title}
++              </h1>
++              <p className="mt-2 text-sm leading-relaxed text-sand-600">
++                {subtitle}
++              </p>
++
++              <div className="mt-6">{children}</div>
++
++              {footer ? (
++                <div className="mt-6 border-t border-sand-200/70 pt-5 text-sm text-sand-600">
++                  {footer}
++                </div>
++              ) : null}
++            </div>
++          </div>
++
++          {/* ── Promo column ──────────────────────────────────────────── */}
++          <PromoCard />
++        </div>
++      </div>
++    </div>
++  );
++}
++
++/**
++ * The right-hand produce promo card.
++ *
++ * There is no photography in the repository, so the panel is built from the
++ * same vocabulary the catalogue uses — a brand/sand gradient, `lucide-react`
++ * produce icons, and frosted badges — rather than shipping an unreviewable
++ * binary asset.
++ */
++function PromoCard() {
++  return (
++    <div className="relative overflow-hidden rounded-card border border-white/40 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-8 text-white shadow-xl backdrop-blur-md sm:p-10">
++      {/* A soft light source in the corner, so the panel has depth. */}
++      <div
++        className="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-brand-400/40 blur-3xl"
++        aria-hidden="true"
++      />
++      <div
++        className="pointer-events-none absolute -bottom-24 -left-16 size-64 rounded-full bg-fair-500/20 blur-3xl"
++        aria-hidden="true"
++      />
++
++      <div className="relative">
++        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-brand-50 backdrop-blur-sm">
++          <Sprout className="size-3.5" aria-hidden="true" />
++          Farm-to-table, delivered in Dhaka
++        </span>
++
++        <h2 className="mt-5 text-2xl font-semibold tracking-tight sm:text-3xl">
++          Know exactly when it was picked.
++        </h2>
++        <p className="mt-3 text-sm leading-relaxed text-brand-50/90">
++          Every batch carries its harvest date and freshness tier, so the price
++          you pay always matches how fresh the produce actually is.
++        </p>
++
++        {/* ── Produce motifs ─────────────────────────────────────────── */}
++        <div className="mt-8 flex items-end gap-3">
++          <span className="flex size-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
++            <Leaf className="size-7" strokeWidth={1.25} aria-hidden="true" />
++          </span>
++          <span className="flex size-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
++            <Sprout className="size-7" strokeWidth={1.25} aria-hidden="true" />
++          </span>
++          <span className="flex size-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
++            <Truck className="size-7" strokeWidth={1.25} aria-hidden="true" />
++          </span>
++        </div>
++
++        {/* ── Frosted badges ─────────────────────────────────────────── */}
++        <ul className="mt-8 flex flex-wrap gap-2.5">
++          <li className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md">
++            <Sprout className="size-3.5" aria-hidden="true" />
++            Harvested today
++          </li>
++          <li className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md">
++            <MapPin className="size-3.5" aria-hidden="true" />
++            Traceable batches
++          </li>
++        </ul>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/(auth)/login/page.jsx b/src/app/(auth)/login/page.jsx
+new file mode 100644
+index 0000000..659e294
+--- /dev/null
++++ b/src/app/(auth)/login/page.jsx
+@@ -0,0 +1,52 @@
++import Link from "next/link";
++import { Suspense } from "react";
++import AuthShell from "@/app/(auth)/AuthShell";
++import AuthForm, { AuthFormSkeleton } from "@/components/AuthForm";
++
++/**
++ * Sign-in page.
++ *
++ * SRS §9.1: `(auth)/login/page.jsx` — the auth route group sits outside the
++ * customer shell, so a signed-out visitor gets a focused page rather than
++ * the catalogue header.
++ *
++ * @param {object} props
++ * @param {Promise<{ next?: string | string[] }>} props.searchParams
++ */
++export async function generateMetadata({ searchParams }) {
++  const params = await searchParams;
++  const next = Array.isArray(params?.next) ? params.next[0] : params?.next;
++
++  return {
++    title: "Sign in — FreshTrace",
++    description: next
++      ? "Sign in to continue to FreshTrace."
++      : "Sign in to your FreshTrace account for traceable farm-to-table produce in Dhaka.",
++  };
++}
++
++export default function LoginPage() {
++  return (
++    <AuthShell
++      title="Welcome back"
++      subtitle="Sign in to see today's batches, track your orders and manage your weekly subscription."
++      footer={
++        <p>
++          New to FreshTrace?{" "}
++          <Link
++            href="/register"
++            className="font-semibold text-brand-700 underline-offset-4 transition hover:underline"
++          >
++            Create an account
++          </Link>
++        </p>
++      }
++    >
++      {/* The form reads `?next=` with `useSearchParams()`, so it needs a
++          Suspense boundary to be prerendered. */}
++      <Suspense fallback={<AuthFormSkeleton />}>
++        <AuthForm mode="login" />
++      </Suspense>
++    </AuthShell>
++  );
++}
+diff --git a/src/app/(auth)/register/page.jsx b/src/app/(auth)/register/page.jsx
+new file mode 100644
+index 0000000..93a6ba0
+--- /dev/null
++++ b/src/app/(auth)/register/page.jsx
+@@ -0,0 +1,51 @@
++import Link from "next/link";
++import { Suspense } from "react";
++import AuthShell from "@/app/(auth)/AuthShell";
++import AuthForm, { AuthFormSkeleton } from "@/components/AuthForm";
++
++/**
++ * Registration page.
++ *
++ * SRS §9.1: `(auth)/register/page.jsx` — the auth route group sits outside
++ * the customer shell.
++ *
++ * @param {object} props
++ * @param {Promise<{ next?: string | string[] }>} props.searchParams
++ */
++export async function generateMetadata({ searchParams }) {
++  const params = await searchParams;
++  const next = Array.isArray(params?.next) ? params.next[0] : params?.next;
++
++  return {
++    title: "Create an account — FreshTrace",
++    description: next
++      ? "Create a FreshTrace account to continue."
++      : "Create a FreshTrace account for traceable farm-to-table produce delivered in Dhaka.",
++  };
++}
++
++export default function RegisterPage() {
++  return (
++    <AuthShell
++      title="Create your account"
++      subtitle="One account for fresh produce, weekly subscriptions and delivery across Dhaka."
++      footer={
++        <p>
++          Already have an account?{" "}
++          <Link
++            href="/login"
++            className="font-semibold text-brand-700 underline-offset-4 transition hover:underline"
++          >
++            Sign in
++          </Link>
++        </p>
++      }
++    >
++      {/* The form reads `?next=` with `useSearchParams()`, so it needs a
++          Suspense boundary to be prerendered. */}
++      <Suspense fallback={<AuthFormSkeleton showName />}>
++        <AuthForm mode="register" />
++      </Suspense>
++    </AuthShell>
++  );
++}
+diff --git a/src/app/(customer)/layout.jsx b/src/app/(customer)/layout.jsx
+new file mode 100644
+index 0000000..9c7adb0
+--- /dev/null
++++ b/src/app/(customer)/layout.jsx
+@@ -0,0 +1,157 @@
++import Link from "next/link";
++import { Leaf, ShoppingBasket, User } from "lucide-react";
++import { getSession } from "@/lib/auth/session";
++import LogoutButton from "@/components/LogoutButton";
++
++/**
++ * Customer shell layout.
++ *
++ * SRS §9.1 places the customer shell at `(customer)/layout.jsx` and
++ * SRS §9.2 notes the route group is protected by a layout-level guard that
++ * checks the session and role server-side.
++ *
++ * The auth **guard** is intentionally not wired up: the catalogue is browsable
++ * without an account, and a guard would lock every visitor out. The header is
++ * session-*aware* though — it shows Login / Register when signed out and the
++ * user's name plus a Log out control when signed in.
++ *
++ * The session is resolved **server-side** with `getSession()` — it reads the
++ * `next/headers` cookie store, which is unavailable in a Client Component.
++ * The result is passed down as props; only the Logout button needs
++ * `"use client"`.
++ */
++export default async function CustomerLayout({ children }) {
++  const session = await getSession();
++  const user = session?.user ?? null;
++
++  return (
++    <div className="flex min-h-screen flex-col bg-sand-50">
++      {/* ── Header ──────────────────────────────────────────────────── */}
++      <header className="sticky top-0 z-40 border-b border-sand-200 bg-white/90 backdrop-blur-md">
++        <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
++          <Link
++            href="/app/products"
++            className="flex items-center gap-2 font-semibold tracking-tight text-sand-900"
++          >
++            <span className="flex size-8 items-center justify-center rounded-lg bg-brand-600 text-white">
++              <Leaf className="size-4" aria-hidden="true" />
++            </span>
++            <span className="text-lg">FreshTrace</span>
++          </Link>
++
++          <nav
++            className="hidden items-center gap-1 text-sm font-medium text-sand-600 md:flex"
++            aria-label="Main"
++          >
++            <Link
++              href="/app/products"
++              className="rounded-lg px-3 py-2 transition hover:bg-sand-100 hover:text-sand-900"
++            >
++              Catalogue
++            </Link>
++
++            {/* ── Not-yet-built destinations ───────────────────────────
++                These pages belong to later stories. They are rendered as
++                non-interactive spans rather than links: a disabled-looking
++                `<a href>` still lets keyboard and screen-reader users
++                activate a 404. */}
++            <span
++              aria-disabled="true"
++              className="cursor-not-allowed rounded-lg px-3 py-2 text-sand-400 opacity-60"
++            >
++              Subscriptions
++            </span>
++            <span
++              aria-disabled="true"
++              className="cursor-not-allowed rounded-lg px-3 py-2 text-sand-400 opacity-60"
++            >
++              Orders
++            </span>
++          </nav>
++
++          <div className="ml-auto flex items-center gap-1.5">
++            <span
++              aria-disabled="true"
++              className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sand-400 opacity-60"
++            >
++              <ShoppingBasket className="size-4" aria-hidden="true" />
++              <span className="hidden sm:inline">Cart</span>
++            </span>
++            <span
++              aria-disabled="true"
++              className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sand-400 opacity-60"
++            >
++              <User className="size-4" aria-hidden="true" />
++              <span className="hidden sm:inline">Account</span>
++            </span>
++
++            {/* ── SessionUser slot ─────────────────────────────────────
++                Signed out: Login + Register. Signed in: the user's name
++                and a Log out control. */}
++            {user ? (
++              <div className="ml-1 flex items-center gap-1.5">
++                <span className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sand-700">
++                  <span className="flex size-6 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
++                    {initials(user.name, user.email)}
++                  </span>
++                  <span className="max-w-[10rem] truncate">{user.name ?? user.email}</span>
++                </span>
++                <LogoutButton />
++              </div>
++            ) : (
++              <div className="ml-1 flex items-center gap-1.5">
++                <Link
++                  href="/login"
++                  className="rounded-lg px-3 py-2 text-sm font-medium text-sand-600 transition hover:bg-sand-100 hover:text-sand-900"
++                >
++                  Login
++                </Link>
++                <Link
++                  href="/register"
++                  className="rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
++                >
++                  Register
++                </Link>
++              </div>
++            )}
++          </div>
++        </div>
++      </header>
++
++      {/* ── Main ────────────────────────────────────────────────────── */}
++      <main className="flex-1">{children}</main>
++
++      {/* ── Footer ──────────────────────────────────────────────────── */}
++      <footer className="border-t border-sand-200 bg-white">
++        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-sand-500 sm:flex-row sm:px-6 lg:px-8">
++          <p>
++            FreshTrace — farm-to-table produce with visible freshness, delivered
++            in Dhaka.
++          </p>
++          <p>Every batch is traceable back to its harvest.</p>
++        </div>
++      </footer>
++    </div>
++  );
++}
++
++/**
++ * Two-letter initials for the signed-in user's avatar.
++ *
++ * Falls back to the email's first character when the account has no name.
++ *
++ * @param {string | null | undefined} name
++ * @param {string} email
++ * @returns {string}
++ */
++function initials(name, email) {
++  const source = (name ?? "").trim();
++
++  if (source) {
++    const parts = source.split(/\s+/).filter(Boolean);
++    const letters = parts.slice(0, 2).map((part) => part[0]);
++    if (letters.length > 0) return letters.join("").toUpperCase();
++  }
++
++  return (email ?? "?").trim().charAt(0).toUpperCase() || "?";
++}
+diff --git a/src/app/api/auth/register/route.js b/src/app/api/auth/register/route.js
+new file mode 100644
+index 0000000..3d7a275
+--- /dev/null
++++ b/src/app/api/auth/register/route.js
+@@ -0,0 +1,92 @@
++import { NextResponse } from "next/server";
++import { ERROR_CODES, errorResponse, handleRouteError } from "@/lib/errors";
++import { prisma } from "@/lib/prisma";
++import { hashPassword } from "@/lib/auth/password";
++import {
++  SESSION_COOKIE_NAME,
++  createSession,
++  sessionCookieOptions,
++} from "@/lib/auth/session";
++import { validateRegisterInput } from "@/lib/validation/auth";
++
++/**
++ * `POST /api/auth/register` — create a customer account and sign it in.
++ *
++ * Body: `{ name, email, password }`.
++ *
++ * SRS §3.1: the raw session token lives only in the httpOnly cookie; the
++ * database stores its SHA-256 hash. There is no JWT and no client-side token
++ * store.
++ *
++ * Registration is self-service and always creates a **customer** account —
++ * the request body cannot choose a role. The session is created here rather
++ * than by a follow-up call to `/api/auth/login`, so the caller needs one
++ * round-trip instead of two; the session-creation code is deliberately
++ * identical to `login/route.js` so the two paths cannot drift.
++ */
++export async function POST(request) {
++  try {
++    let body;
++    try {
++      body = await request.json();
++    } catch {
++      return errorResponse(ERROR_CODES.VALIDATION_FAILED, "Request body must be valid JSON.");
++    }
++
++    // Normalise once, at the route boundary, so the validator and the unique
++    // index both see the canonical address. `  Alice@Example.COM ` and
++    // `alice@example.com` are the same account.
++    const input =
++      body && typeof body === "object" ? { ...body } : {};
++    if (typeof input.email === "string") {
++      input.email = input.email.trim().toLowerCase();
++    }
++
++    const result = validateRegisterInput(input);
++    if (!result.success) {
++      return errorResponse(
++        ERROR_CODES.VALIDATION_FAILED,
++        "The account could not be created because some fields are invalid.",
++        { issues: result.errors },
++      );
++    }
++
++    const { name, email, password } = result.data;
++
++    const passwordHash = await hashPassword(password);
++
++    const user = await prisma.user.create({
++      data: {
++        name,
++        email,
++        passwordHash,
++        role: "customer",
++        status: "active",
++      },
++      select: { id: true, email: true, name: true, role: true },
++    });
++
++    const { token } = await createSession(user.id, {
++      userAgent: request.headers.get("user-agent"),
++      ipAddress:
++        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
++    });
++
++    const response = NextResponse.json(
++      {
++        data: {
++          id: user.id,
++          email: user.email,
++          name: user.name,
++          role: user.role,
++        },
++      },
++      { status: 201 },
++    );
++
++    response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
++    return response;
++  } catch (err) {
++    return handleRouteError(err);
++  }
++}
+diff --git a/src/components/AuthForm.jsx b/src/components/AuthForm.jsx
+new file mode 100644
+index 0000000..c86feb2
+--- /dev/null
++++ b/src/components/AuthForm.jsx
+@@ -0,0 +1,319 @@
++"use client";
++
++import { useRouter, useSearchParams } from "next/navigation";
++import { useState } from "react";
++import { AlertCircle, Loader2 } from "lucide-react";
++import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
++
++/**
++ * AuthForm — the shared sign-in / sign-up form.
++ *
++ * SRS §9.2: the form is a Client Component; the pages around it are Server
++ * Components. The form talks to the two existing API routes:
++ *
++ * - `POST /api/auth/login` — sets the `ft_session` cookie.
++ * - `POST /api/auth/register` — creates the account *and* sets the cookie.
++ *
++ * The session token itself never reaches the client: it travels in the
++ * httpOnly cookie, so there is nothing to store in JavaScript.
++ */
++
++/** Where a visitor lands after a successful sign-in. */
++const DEFAULT_REDIRECT = "/app/products";
++
++/**
++ * Validate a `?next=` target.
++ *
++ * Only a single-slash-prefixed path is accepted. `//evil.example` is a
++ * protocol-relative URL that would redirect off-site, so it is rejected
++ * alongside anything that is not a path at all.
++ *
++ * @param {string | null} value
++ * @returns {string}
++ */
++export function safeRedirectPath(value) {
++  if (typeof value !== "string") return DEFAULT_REDIRECT;
++
++  const candidate = value.trim();
++
++  if (!candidate.startsWith("/")) return DEFAULT_REDIRECT;
++  if (candidate.startsWith("//")) return DEFAULT_REDIRECT;
++  if (candidate.includes("\\")) return DEFAULT_REDIRECT;
++  if (candidate.includes("\n") || candidate.includes("\r")) return DEFAULT_REDIRECT;
++
++  return candidate;
++}
++
++/**
++ * @param {object} props
++ * @param {"login" | "register"} props.mode
++ */
++export default function AuthForm({ mode }) {
++  const router = useRouter();
++  const searchParams = useSearchParams();
++
++  const isRegister = mode === "register";
++
++  const [name, setName] = useState("");
++  const [email, setEmail] = useState("");
++  const [password, setPassword] = useState("");
++  const [fieldErrors, setFieldErrors] = useState({});
++  const [generalError, setGeneralError] = useState("");
++  const [isPending, setIsPending] = useState(false);
++
++  const redirectTo = safeRedirectPath(searchParams.get("next"));
++
++  /**
++   * Turn the API's `details.issues[]` into a field → message map.
++   *
++   * @param {unknown} details
++   * @returns {Record<string, string>}
++   */
++  function issuesToFieldErrors(details) {
++    /** @type {Record<string, string>} */
++    const map = {};
++    const issues =
++      details && typeof details === "object" && Array.isArray(details.issues)
++        ? details.issues
++        : [];
++
++    for (const issue of issues) {
++      if (!issue || typeof issue !== "object") continue;
++      const path = typeof issue.path === "string" ? issue.path : "";
++      const message = typeof issue.message === "string" ? issue.message : "";
++      if (!path || !message) continue;
++      // The first issue per field wins — one message per input is enough.
++      if (!map[path]) map[path] = message;
++    }
++
++    return map;
++  }
++
++  /**
++   * @param {import("react").FormEvent<HTMLFormElement>} event
++   */
++  async function handleSubmit(event) {
++    event.preventDefault();
++
++    setGeneralError("");
++    setFieldErrors({});
++    setIsPending(true);
++
++    const endpoint = isRegister ? "/api/auth/register" : "/api/auth/login";
++    const payload = isRegister ? { name, email, password } : { email, password };
++
++    try {
++      const response = await fetch(endpoint, {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify(payload),
++      });
++
++      let body = null;
++      try {
++        body = await response.json();
++      } catch {
++        body = null;
++      }
++
++      if (!response.ok) {
++        const error = body?.error;
++        const details = error?.details;
++
++        const fieldMap = issuesToFieldErrors(details);
++        if (Object.keys(fieldMap).length > 0) {
++          setFieldErrors(fieldMap);
++        }
++
++        setGeneralError(
++          typeof error?.message === "string" && error.message
++            ? error.message
++            : "Something went wrong. Please try again.",
++        );
++        return;
++      }
++
++      // The cookie is already set by the route; the redirect just needs the
++      // server components to re-read it.
++      router.push(redirectTo);
++      router.refresh();
++    } catch {
++      setGeneralError("Could not reach the server. Please try again.");
++    } finally {
++      setIsPending(false);
++    }
++  }
++
++  return (
++    <form onSubmit={handleSubmit} noValidate className="space-y-4">
++      {/* ── General error ────────────────────────────────────────────── */}
++      <div aria-live="polite" aria-atomic="true">
++        {generalError ? (
++          <p className="flex items-start gap-2 rounded-xl border border-expired-100 bg-expired-50 px-3.5 py-3 text-sm text-expired-800">
++            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
++            <span>{generalError}</span>
++          </p>
++        ) : null}
++      </div>
++
++      {isRegister ? (
++        <Field
++          id="name"
++          label="Full name"
++          type="text"
++          autoComplete="name"
++          value={name}
++          onChange={(event) => setName(event.target.value)}
++          error={fieldErrors.name}
++          placeholder="Alice Rahman"
++        />
++      ) : null}
++
++      <Field
++        id="email"
++        label="Email"
++        type="email"
++        autoComplete="email"
++        value={email}
++        onChange={(event) => setEmail(event.target.value)}
++        error={fieldErrors.email}
++        placeholder="you@example.com"
++      />
++
++      <Field
++        id="password"
++        label="Password"
++        type="password"
++        autoComplete={isRegister ? "new-password" : "current-password"}
++        value={password}
++        onChange={(event) => setPassword(event.target.value)}
++        error={fieldErrors.password}
++        placeholder={isRegister ? "At least 8 characters" : "••••••••"}
++        hint={
++          isRegister
++            ? `Use at least ${MIN_PASSWORD_LENGTH} characters.`
++            : undefined
++        }
++      />
++
++      <button
++        type="submit"
++        disabled={isPending}
++        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-sand-200 disabled:text-sand-400"
++      >
++        {isPending ? (
++          <>
++            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
++            {isRegister ? "Creating your account…" : "Signing you in…"}
++          </>
++        ) : isRegister ? (
++          "Create account"
++        ) : (
++          "Sign in"
++        )}
++      </button>
++    </form>
++  );
++}
++
++/**
++ * A placeholder for the form while the client bundle boots.
++ *
++ * `useSearchParams()` forces the form to be client-rendered, so the page
++ * needs a `<Suspense>` boundary around it (Next.js prerender requirement).
++ * The skeleton mirrors the form's field count so the card does not jump
++ * when the real form replaces it.
++ *
++ * @param {object} props
++ * @param {boolean} [props.showName]
++ */
++export function AuthFormSkeleton({ showName = false }) {
++  const fieldCount = showName ? 3 : 2;
++
++  return (
++    <div aria-hidden="true">
++      {Array.from({ length: fieldCount }).map((_, index) => (
++        <div key={index} className="mt-4 first:mt-0">
++          <div className="h-4 w-24 rounded bg-sand-200" />
++          <div className="mt-1.5 h-10 w-full rounded-xl bg-sand-100" />
++        </div>
++      ))}
++      <div className="mt-4 h-10 w-full rounded-lg bg-sand-200" />
++    </div>
++  );
++}
++
++/**
++ * A labelled input with an optional hint and an inline error message.
++ *
++ * @param {object} props
++ * @param {string} props.id
++ * @param {string} props.label
++ * @param {string} props.type
++ * @param {string} props.value
++ * @param {(event: import("react").ChangeEvent<HTMLInputElement>) => void} props.onChange
++ * @param {string} props.autoComplete
++ * @param {string} [props.placeholder]
++ * @param {string} [props.hint]
++ * @param {string} [props.error]
++ */
++function Field({
++  id,
++  label,
++  type,
++  value,
++  onChange,
++  autoComplete,
++  placeholder,
++  hint,
++  error,
++}) {
++  const hintId = hint ? `${id}-hint` : undefined;
++  const errorId = error ? `${id}-error` : undefined;
++
++  return (
++    <div>
++      <label
++        htmlFor={id}
++        className="block text-sm font-medium text-sand-700"
++      >
++        {label}
++      </label>
++
++      <input
++        id={id}
++        name={id}
++        type={type}
++        value={value}
++        onChange={onChange}
++        autoComplete={autoComplete}
++        placeholder={placeholder}
++        aria-invalid={error ? "true" : undefined}
++        aria-describedby={
++          [hintId, errorId].filter(Boolean).join(" ") || undefined
++        }
++        className={`mt-1.5 w-full rounded-xl border bg-white py-2.5 px-3.5 text-sm text-sand-900 shadow-soft transition placeholder:text-sand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 ${
++          error
++            ? "border-expired-500 focus:border-expired-500 focus:ring-expired-500/20"
++            : "border-sand-200 focus:border-brand-400 focus:ring-brand-500/20"
++        }`}
++      />
++
++      {hint ? (
++        <p id={hintId} className="mt-1.5 text-xs text-sand-500">
++          {hint}
++        </p>
++      ) : null}
++
++      {error ? (
++        <p
++          id={errorId}
++          className="mt-1.5 flex items-start gap-1.5 text-xs text-expired-700"
++        >
++          <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
++          <span>{error}</span>
++        </p>
++      ) : null}
++    </div>
++  );
++}
+diff --git a/src/components/LogoutButton.jsx b/src/components/LogoutButton.jsx
+new file mode 100644
+index 0000000..3d59167
+--- /dev/null
++++ b/src/components/LogoutButton.jsx
+@@ -0,0 +1,54 @@
++"use client";
++
++import { useRouter } from "next/navigation";
++import { useState } from "react";
++import { LogOut } from "lucide-react";
++
++/**
++ * LogoutButton — signs the visitor out.
++ *
++ * SRS §3.1: because sessions are server-side, logging out is immediate and
++ * global — the route deletes the session row and clears the `ft_session`
++ * cookie. The raw token never reaches JavaScript, so there is nothing to
++ * clean up on the client.
++ *
++ * After the request, the server components are refreshed so the Navbar
++ * re-renders in its signed-out state without a full page reload.
++ */
++export default function LogoutButton() {
++  const router = useRouter();
++  const [isPending, setIsPending] = useState(false);
++
++  /**
++   * @param {import("react").MouseEvent<HTMLButtonElement>} event
++   */
++  async function handleLogout(event) {
++    event.preventDefault();
++    setIsPending(true);
++
++    try {
++      await fetch("/api/auth/logout", { method: "POST" });
++    } catch {
++      // A failed logout must not trap the visitor on the page; the session
++      // cookie is still cleared by the browser on the next sign-in.
++    }
++
++    router.refresh();
++    router.push("/app/products");
++    setIsPending(false);
++  }
++
++  return (
++    <button
++      type="button"
++      onClick={handleLogout}
++      disabled={isPending}
++      className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sand-600 transition hover:bg-sand-100 hover:text-sand-900 disabled:cursor-not-allowed disabled:opacity-60"
++    >
++      <LogOut className="size-4" aria-hidden="true" />
++      <span className="hidden sm:inline">
++        {isPending ? "Signing out…" : "Log out"}
++      </span>
++    </button>
++  );
++}
+diff --git a/src/lib/validation/auth.js b/src/lib/validation/auth.js
+new file mode 100644
+index 0000000..0203c90
+--- /dev/null
++++ b/src/lib/validation/auth.js
+@@ -0,0 +1,89 @@
++import { MIN_PASSWORD_LENGTH, meetsPasswordPolicy } from "@/lib/auth/password";
++import { Validator, finish, requireString } from "@/lib/validation/schema";
++
++/**
++ * Authentication input validation.
++ *
++ * SRS §3.1 / §4.2: an account is identified by a unique, normalised email
++ * address and protected by a password. Registration is open to the public and
++ * always creates a *customer* account — the caller never chooses a role.
++ *
++ * The validators follow the house pattern from `src/lib/validation/product.js`:
++ * a `Validator` accumulates issues, the primitives mutate it and return the
++ * trimmed value (or `undefined` on failure), and `finish` turns the run into
++ * a `{ success, data }` / `{ success, errors }` result.
++ */
++
++/**
++ * @typedef {object} RegisterInput
++ * @property {string} name
++ * @property {string} email
++ * @property {string} password
++ */
++
++/**
++ * @typedef {object} LoginInput
++ * @property {string} email
++ * @property {string} password
++ */
++
++/** Pragmatic email shape check — one `@`, a dotted domain, no whitespace. */
++const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
++
++/**
++ * Maximum lengths. The email limit matches the database column budget; the
++ * password limit keeps an oversized value out of the bcrypt work factor.
++ */
++const MAX_EMAIL_LENGTH = 255;
++const MAX_PASSWORD_LENGTH = 128;
++
++/**
++ * Validate a registration payload.
++ *
++ * @param {unknown} body
++ * @returns {import("@/lib/validation/schema").ValidationResult<RegisterInput>}
++ */
++export function validateRegisterInput(body) {
++  const v = new Validator();
++  const input = /** @type {Record<string, unknown>} */ (body ?? {});
++
++  const name = requireString(v, input.name, "name", { min: 2, max: 120 });
++
++  const email = requireString(v, input.email, "email", { min: 3, max: MAX_EMAIL_LENGTH });
++  if (email !== undefined && !EMAIL_PATTERN.test(email)) {
++    v.add("email", "Must be a valid email address.");
++  }
++
++  const password = requireString(v, input.password, "password", {
++    min: MIN_PASSWORD_LENGTH,
++    max: MAX_PASSWORD_LENGTH,
++  });
++  if (password !== undefined && !meetsPasswordPolicy(password)) {
++    v.add("password", `Must be at least ${MIN_PASSWORD_LENGTH} characters.`);
++  }
++
++  return finish(v, { name, email, password });
++}
++
++/**
++ * Validate a login payload.
++ *
++ * Presence only — the format is deliberately *not* checked, because an
++ * unknown email and a malformed email must produce the same `401` response
++ * as a wrong password. The route owns that decision.
++ *
++ * @param {unknown} body
++ * @returns {import("@/lib/validation/schema").ValidationResult<LoginInput>}
++ */
++export function validateLoginInput(body) {
++  const v = new Validator();
++  const input = /** @type {Record<string, unknown>} */ (body ?? {});
++
++  const email = requireString(v, input.email, "email", { min: 1, max: MAX_EMAIL_LENGTH });
++  const password = requireString(v, input.password, "password", {
++    min: 1,
++    max: MAX_PASSWORD_LENGTH,
++  });
++
++  return finish(v, { email, password });
++}
+diff --git a/tests/auth-login.test.js b/tests/auth-login.test.js
+new file mode 100644
+index 0000000..7a464d2
+--- /dev/null
++++ b/tests/auth-login.test.js
+@@ -0,0 +1,176 @@
++import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
++import { prisma } from "@/lib/prisma";
++import { hashPassword } from "@/lib/auth/password";
++import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
++
++/**
++ * Integration tests for `POST /api/auth/login` and `POST /api/auth/logout`.
++ *
++ * These routes predate the authentication UI, but the story's I/O matrix
++ * lists their behaviours, so they are pinned here rather than left implicit.
++ *
++ * The session module imports `next/headers`, so it is mocked to allow the
++ * handlers to be invoked outside a request scope.
++ */
++vi.mock("next/headers", () => ({
++  cookies: vi.fn(async () => ({
++    get: () => undefined,
++    set: () => {},
++    delete: () => {},
++  })),
++}));
++
++const { POST: login } = await import("@/app/api/auth/login/route");
++const { POST: logout } = await import("@/app/api/auth/logout/route");
++
++const EMAIL = "login.test@test.local";
++const PASSWORD = "tomatoes";
++
++/**
++ * @param {unknown} body
++ * @param {string} [cookie]
++ * @returns {Request}
++ */
++function jsonRequest(body, cookie) {
++  return new Request("http://localhost/api/auth/login", {
++    method: "POST",
++    headers: {
++      "Content-Type": "application/json",
++      ...(cookie ? { cookie } : {}),
++    },
++    body: JSON.stringify(body),
++  });
++}
++
++beforeEach(async () => {
++  await prisma.session.deleteMany();
++  await prisma.user.deleteMany({ where: { email: EMAIL } });
++});
++
++afterAll(async () => {
++  await prisma.session.deleteMany();
++  await prisma.user.deleteMany({ where: { email: EMAIL } });
++  await prisma.$disconnect();
++});
++
++/**
++ * Seed a user with the given status.
++ *
++ * @param {string} status
++ */
++async function seedUser(status) {
++  const passwordHash = await hashPassword(PASSWORD);
++
++  return prisma.user.create({
++    data: { email: EMAIL, passwordHash, name: "Login Tester", status },
++  });
++}
++
++describe("POST /api/auth/login", () => {
++  it("signs in an active user and sets the session cookie", async () => {
++    await seedUser("active");
++
++    const response = await login(jsonRequest({ email: EMAIL, password: PASSWORD }));
++    const body = await response.json();
++
++    expect(response.status).toBe(200);
++    expect(body.data.email).toBe(EMAIL);
++    expect(body.data.role).toBe("customer");
++    expect(body.error).toBeUndefined();
++
++    const setCookie = response.headers.get("set-cookie") ?? "";
++    expect(setCookie).toContain(`${SESSION_COOKIE_NAME}=`);
++    expect(setCookie).toContain("HttpOnly");
++    expect(/SameSite=lax/i.test(setCookie)).toBe(true);
++  });
++
++  it("rejects a wrong password with 401 and sets no cookie", async () => {
++    await seedUser("active");
++
++    const response = await login(jsonRequest({ email: EMAIL, password: "wrong-password" }));
++    const body = await response.json();
++
++    expect(response.status).toBe(401);
++    expect(body.error.code).toBe("unauthenticated");
++    expect(response.headers.get("set-cookie") ?? "").not.toContain(
++      `${SESSION_COOKIE_NAME}=`,
++    );
++  });
++
++  it("rejects an unknown email with 401 and the same message as a wrong password", async () => {
++    await seedUser("active");
++
++    const unknown = await login(
++      jsonRequest({ email: "nobody@test.local", password: PASSWORD }),
++    );
++    const unknownBody = await unknown.json();
++
++    const wrong = await login(
++      jsonRequest({ email: EMAIL, password: "wrong-password" }),
++    );
++    const wrongBody = await wrong.json();
++
++    expect(unknown.status).toBe(401);
++    expect(wrong.status).toBe(401);
++    // The two must be indistinguishable, so the response cannot reveal
++    // which accounts exist.
++    expect(unknownBody.error.message).toBe(wrongBody.error.message);
++    expect(unknownBody.error.code).toBe(wrongBody.error.code);
++  });
++
++  it("rejects a suspended account with 403 and sets no cookie", async () => {
++    await seedUser("suspended");
++
++    const response = await login(jsonRequest({ email: EMAIL, password: PASSWORD }));
++    const body = await response.json();
++
++    expect(response.status).toBe(403);
++    expect(body.error.code).toBe("forbidden");
++    expect(response.headers.get("set-cookie") ?? "").not.toContain(
++      `${SESSION_COOKIE_NAME}=`,
++    );
++  });
++
++  it("revokes a suspended account's existing sessions", async () => {
++    const user = await seedUser("active");
++
++    const signedIn = await login(jsonRequest({ email: EMAIL, password: PASSWORD }));
++    const cookie = (signedIn.headers.get("set-cookie") ?? "").split(";")[0];
++
++    expect(await prisma.session.count({ where: { userId: user.id } })).toBe(1);
++
++    await prisma.user.update({
++      where: { id: user.id },
++      data: { status: "suspended" },
++    });
++
++    // Logging in again clears the old sessions rather than stacking a new one.
++    await login(jsonRequest({ email: EMAIL, password: PASSWORD }));
++
++    expect(await prisma.session.count({ where: { userId: user.id } })).toBe(1);
++    expect(cookie).toContain(`${SESSION_COOKIE_NAME}=`);
++  });
++});
++
++describe("POST /api/auth/logout", () => {
++  it("clears the cookie and deletes the session row", async () => {
++    const user = await seedUser("active");
++
++    const signedIn = await login(jsonRequest({ email: EMAIL, password: PASSWORD }));
++    const cookie = (signedIn.headers.get("set-cookie") ?? "").split(";")[0];
++
++    expect(await prisma.session.count({ where: { userId: user.id } })).toBe(1);
++
++    const response = await logout(
++      new Request("http://localhost/api/auth/logout", {
++        method: "POST",
++        headers: { cookie },
++      }),
++    );
++
++    expect(response.status).toBe(200);
++
++    // The cookie is expired immediately, not merely emptied.
++    expect(/Max-Age=0/i.test(response.headers.get("set-cookie") ?? "")).toBe(true);
++  });
++});
+diff --git a/tests/auth-register.test.js b/tests/auth-register.test.js
+new file mode 100644
+index 0000000..e9ba99d
+--- /dev/null
++++ b/tests/auth-register.test.js
+@@ -0,0 +1,271 @@
++import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
++import { prisma } from "@/lib/prisma";
++import { POST } from "@/app/api/auth/register/route";
++import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
++
++/**
++ * Integration tests for `POST /api/auth/register`.
++ *
++ * SRS §14.1: these run against the dedicated `dev.test.db` SQLite file with
++ * migrations applied by the global setup. Prisma is real, not mocked.
++ *
++ * The route reaches the session module, which imports `next/headers`. That
++ * module is mocked here so the handler can be invoked outside a request
++ * scope — the register route never reads cookies, it only writes them.
++ */
++vi.mock("next/headers", () => ({
++  cookies: vi.fn(async () => ({
++    get: () => undefined,
++    set: () => {},
++    delete: () => {},
++  })),
++}));
++
++/**
++ * Build a `Request` with a JSON body.
++ *
++ * @param {unknown} body
++ * @returns {Request}
++ */
++function jsonRequest(body) {
++  return new Request("http://localhost/api/auth/register", {
++    method: "POST",
++    headers: {
++      "Content-Type": "application/json",
++      "user-agent": "vitest",
++    },
++    body: JSON.stringify(body),
++  });
++}
++
++/**
++ * Build a `Request` whose body is not valid JSON.
++ *
++ * @returns {Request}
++ */
++function malformedRequest() {
++  return new Request("http://localhost/api/auth/register", {
++    method: "POST",
++    headers: { "Content-Type": "application/json" },
++    body: "{ not json",
++  });
++}
++
++const REGISTERED_EMAIL = "register.test@test.local";
++
++/**
++ * The suite shares one SQLite file with the other integration tests, so
++ * assertions count only the rows a given request could have created rather
++ * than the whole `User` table.
++ */
++const OTHER_EMAIL = "alice@example.com";
++
++beforeEach(async () => {
++  await prisma.session.deleteMany();
++  await prisma.user.deleteMany({
++    where: { email: { in: [REGISTERED_EMAIL, OTHER_EMAIL] } },
++  });
++});
++
++afterAll(async () => {
++  await prisma.session.deleteMany();
++  await prisma.user.deleteMany();
++  await prisma.$disconnect();
++});
++
++describe("POST /api/auth/register", () => {
++  it("creates a customer account and returns 201", async () => {
++    const response = await POST(
++      jsonRequest({
++        name: "Alice Rahman",
++        email: REGISTERED_EMAIL,
++        password: "tomatoes",
++      }),
++    );
++
++    expect(response.status).toBe(201);
++
++    const body = await response.json();
++    expect(body.data).toBeDefined();
++    expect(body.data.email).toBe(REGISTERED_EMAIL);
++    expect(body.data.name).toBe("Alice Rahman");
++    expect(body.data.role).toBe("customer");
++    expect(typeof body.data.id).toBe("string");
++    expect(body.error).toBeUndefined();
++  });
++
++  it("stores a bcrypt hash rather than the plaintext", async () => {
++    await POST(
++      jsonRequest({
++        name: "Alice Rahman",
++        email: REGISTERED_EMAIL,
++        password: "tomatoes",
++      }),
++    );
++
++    const user = await prisma.user.findUnique({
++      where: { email: REGISTERED_EMAIL },
++    });
++
++    expect(user).not.toBeNull();
++    expect(user.passwordHash).not.toBe("tomatoes");
++    expect(user.passwordHash).toMatch(/^\$2[aby]\$/);
++    expect(user.role).toBe("customer");
++    expect(user.status).toBe("active");
++  });
++
++  it("sets the ft_session cookie as httpOnly and SameSite=Lax", async () => {
++    const response = await POST(
++      jsonRequest({
++        name: "Alice Rahman",
++        email: REGISTERED_EMAIL,
++        password: "tomatoes",
++      }),
++    );
++
++    const setCookie = response.headers.get("set-cookie");
++    expect(setCookie).not.toBeNull();
++    expect(setCookie).toContain(`${SESSION_COOKIE_NAME}=`);
++    expect(setCookie).toContain("HttpOnly");
++    expect(setCookie).toContain("SameSite=lax");
++  });
++
++  it("creates a session row for the new user", async () => {
++    const response = await POST(
++      jsonRequest({
++        name: "Alice Rahman",
++        email: REGISTERED_EMAIL,
++        password: "tomatoes",
++      }),
++    );
++
++    const body = await response.json();
++    const sessions = await prisma.session.findMany({
++      where: { userId: body.data.id },
++    });
++
++    expect(sessions).toHaveLength(1);
++    // The raw token never reaches the database — only its SHA-256 hash.
++    expect(sessions[0].tokenHash).not.toContain(
++      response.headers.get("set-cookie").split("=")[1].split(";")[0],
++    );
++  });
++
++  it("normalises the email to lower case and trims whitespace", async () => {
++    const response = await POST(
++      jsonRequest({
++        name: "Alice Rahman",
++        email: "  Alice@Example.COM  ",
++        password: "tomatoes",
++      }),
++    );
++
++    expect(response.status).toBe(201);
++
++    const body = await response.json();
++    expect(body.data.email).toBe("alice@example.com");
++
++    const user = await prisma.user.findUnique({
++      where: { email: "alice@example.com" },
++    });
++    expect(user).not.toBeNull();
++  });
++
++  it("rejects a duplicate email with 409 conflict and creates no second user", async () => {
++    const payload = {
++      name: "Alice Rahman",
++      email: REGISTERED_EMAIL,
++      password: "tomatoes",
++    };
++
++    const first = await POST(jsonRequest(payload));
++    expect(first.status).toBe(201);
++
++    const second = await POST(jsonRequest(payload));
++    expect(second.status).toBe(409);
++
++    const body = await second.json();
++    expect(body.error.code).toBe("conflict");
++
++    const count = await prisma.user.count({
++      where: { email: REGISTERED_EMAIL },
++    });
++    expect(count).toBe(1);
++  });
++
++  it("rejects a missing email with 422 and a field-level issue", async () => {
++    const response = await POST(
++      jsonRequest({ name: "Alice Rahman", password: "tomatoes" }),
++    );
++
++    expect(response.status).toBe(422);
++
++    const body = await response.json();
++    expect(body.error.code).toBe("validation_failed");
++    expect(Array.isArray(body.error.details.issues)).toBe(true);
++    expect(
++      body.error.details.issues.some((issue) => issue.path === "email"),
++    ).toBe(true);
++
++    // No row was written for the address that was sent.
++    const count = await prisma.user.count({
++      where: { email: REGISTERED_EMAIL },
++    });
++    expect(count).toBe(0);
++  });
++
++  it("rejects a malformed email with 422 and a field-level issue", async () => {
++    const response = await POST(
++      jsonRequest({
++        name: "Alice Rahman",
++        email: "not-an-email",
++        password: "tomatoes",
++      }),
++    );
++
++    expect(response.status).toBe(422);
++
++    const body = await response.json();
++    expect(body.error.code).toBe("validation_failed");
++    expect(
++      body.error.details.issues.some((issue) => issue.path === "email"),
++    ).toBe(true);
++
++    const count = await prisma.user.count({
++      where: { email: "not-an-email" },
++    });
++    expect(count).toBe(0);
++  });
++
++  it("rejects a password shorter than eight characters with 422", async () => {
++    const response = await POST(
++      jsonRequest({
++        name: "Alice Rahman",
++        email: REGISTERED_EMAIL,
++        password: "1234567",
++      }),
++    );
++
++    expect(response.status).toBe(422);
++
++    const body = await response.json();
++    expect(body.error.code).toBe("validation_failed");
++    expect(
++      body.error.details.issues.some((issue) => issue.path === "password"),
++    ).toBe(true);
++
++    const count = await prisma.user.count({
++      where: { email: REGISTERED_EMAIL },
++    });
++    expect(count).toBe(0);
++  });
++
++  it("rejects a body that is not valid JSON with 422", async () => {
++    const response = await POST(malformedRequest());
++
++    expect(response.status).toBe(422);
++
++    const body = await response.json();
++    expect(body.error.code).toBe("validation_failed");
++  });
++});
+diff --git a/tests/auth-validation.test.js b/tests/auth-validation.test.js
+new file mode 100644
+index 0000000..a501eb0
+--- /dev/null
++++ b/tests/auth-validation.test.js
+@@ -0,0 +1,200 @@
++import { describe, it, expect } from "vitest";
++import {
++  validateLoginInput,
++  validateRegisterInput,
++} from "@/lib/validation/auth";
++import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
++
++/**
++ * Auth validation unit tests.
++ *
++ * These are pure functions — no database, no cookies.
++ */
++
++const VALID_REGISTER = {
++  name: "Alice Rahman",
++  email: "alice@example.com",
++  password: "tomatoes",
++};
++
++/**
++ * @param {import("@/lib/validation/schema").ValidationIssue[]} errors
++ * @param {string} path
++ * @returns {boolean}
++ */
++function hasIssue(errors, path) {
++  return errors.some((e) => e.path === path);
++}
++
++describe("validateRegisterInput", () => {
++  it("accepts a valid registration", () => {
++    const result = validateRegisterInput(VALID_REGISTER);
++    expect(result.success).toBe(true);
++    expect(result.data.name).toBe("Alice Rahman");
++    expect(result.data.email).toBe("alice@example.com");
++    expect(result.data.password).toBe("tomatoes");
++  });
++
++  it("trims whitespace from strings", () => {
++    const result = validateRegisterInput({
++      name: "  Alice Rahman  ",
++      email: "  alice@example.com  ",
++      password: "  tomatoes  ",
++    });
++    expect(result.success).toBe(true);
++    expect(result.data.name).toBe("Alice Rahman");
++    expect(result.data.email).toBe("alice@example.com");
++    expect(result.data.password).toBe("tomatoes");
++  });
++
++  it("rejects a missing name", () => {
++    const result = validateRegisterInput({ ...VALID_REGISTER, name: undefined });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "name")).toBe(true);
++  });
++
++  it("rejects a name shorter than two characters", () => {
++    const result = validateRegisterInput({ ...VALID_REGISTER, name: "A" });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "name")).toBe(true);
++  });
++
++  it("rejects a missing email", () => {
++    const result = validateRegisterInput({ ...VALID_REGISTER, email: undefined });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "email")).toBe(true);
++  });
++
++  it("rejects an empty email", () => {
++    const result = validateRegisterInput({ ...VALID_REGISTER, email: "" });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "email")).toBe(true);
++  });
++
++  it("rejects a malformed email", () => {
++    const result = validateRegisterInput({
++      ...VALID_REGISTER,
++      email: "not-an-email",
++    });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "email")).toBe(true);
++  });
++
++  it("rejects an email without a dotted domain", () => {
++    const result = validateRegisterInput({
++      ...VALID_REGISTER,
++      email: "alice@example",
++    });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "email")).toBe(true);
++  });
++
++  it("rejects a missing password", () => {
++    const result = validateRegisterInput({
++      ...VALID_REGISTER,
++      password: undefined,
++    });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "password")).toBe(true);
++  });
++
++  it("rejects a seven-character password", () => {
++    const result = validateRegisterInput({
++      ...VALID_REGISTER,
++      password: "1234567",
++    });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "password")).toBe(true);
++  });
++
++  it("accepts an eight-character password", () => {
++    const result = validateRegisterInput({
++      ...VALID_REGISTER,
++      password: "12345678",
++    });
++    expect(result.success).toBe(true);
++    expect(result.data.password).toBe("12345678");
++    expect(MIN_PASSWORD_LENGTH).toBe(8);
++  });
++
++  it("rejects an oversized password", () => {
++    const result = validateRegisterInput({
++      ...VALID_REGISTER,
++      password: "a".repeat(129),
++    });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "password")).toBe(true);
++  });
++
++  it("rejects an oversized email", () => {
++    const result = validateRegisterInput({
++      ...VALID_REGISTER,
++      email: `${"a".repeat(250)}@example.com`,
++    });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "email")).toBe(true);
++  });
++
++  it("reports every invalid field at once", () => {
++    const result = validateRegisterInput({
++      name: "",
++      email: "nope",
++      password: "short",
++    });
++    expect(result.success).toBe(false);
++    expect(result.errors.length).toBeGreaterThanOrEqual(3);
++    expect(hasIssue(result.errors, "name")).toBe(true);
++    expect(hasIssue(result.errors, "email")).toBe(true);
++    expect(hasIssue(result.errors, "password")).toBe(true);
++  });
++
++  it("handles a null body without throwing", () => {
++    expect(validateRegisterInput(null).success).toBe(false);
++  });
++});
++
++describe("validateLoginInput", () => {
++  it("accepts a valid login payload", () => {
++    const result = validateLoginInput({
++      email: "alice@example.com",
++      password: "tomatoes",
++    });
++    expect(result.success).toBe(true);
++    expect(result.data.email).toBe("alice@example.com");
++    expect(result.data.password).toBe("tomatoes");
++  });
++
++  it("requires an email", () => {
++    const result = validateLoginInput({ email: "", password: "tomatoes" });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "email")).toBe(true);
++  });
++
++  it("requires a password", () => {
++    const result = validateLoginInput({ email: "alice@example.com", password: "" });
++    expect(result.success).toBe(false);
++    expect(hasIssue(result.errors, "password")).toBe(true);
++  });
++
++  it("does not enforce the registration password length", () => {
++    const result = validateLoginInput({
++      email: "alice@example.com",
++      password: "short",
++    });
++    expect(result.success).toBe(true);
++  });
++
++  it("does not enforce the email format", () => {
++    // A malformed address and an unknown address must produce the same
++    // result, so the route can answer both with one `401`.
++    const result = validateLoginInput({
++      email: "not-an-email",
++      password: "tomatoes",
++    });
++    expect(result.success).toBe(true);
++  });
++
++  it("handles a null body without throwing", () => {
++    expect(validateLoginInput(null).success).toBe(false);
++  });
++});
+diff --git a/tests/ui-smoke.mjs b/tests/ui-smoke.mjs
+new file mode 100644
+index 0000000..7b9349f
+--- /dev/null
++++ b/tests/ui-smoke.mjs
+@@ -0,0 +1,360 @@
++/**
++ * UI smoke test.
++ *
++ * Verifies that the catalogue and product detail pages render with live data
++ * from the database, and that the freshness/price presentation is correct.
++ *
++ * Run with the dev server up: node tests/ui-smoke.mjs
++ */
++const BASE = process.env.UI_BASE_URL || "http://localhost:3000";
++
++/** @type {string[]} */
++const failures = [];
++
++/**
++ * @param {string} name
++ * @param {boolean} condition
++ * @param {string} [detail]
++ */
++function check(name, condition, detail = "") {
++  if (condition) {
++    console.log(`  ✓ ${name}`);
++  } else {
++    console.log(`  ✗ ${name}${detail ? ` — ${detail}` : ""}`);
++    failures.push(name);
++  }
++}
++
++/**
++ * @param {string} path
++ * @returns {Promise<{ status: number, html: string }>}
++ */
++async function get(path) {
++  const res = await fetch(`${BASE}${path}`, {
++    headers: { accept: "text/html" },
++  });
++  return { status: res.status, html: await res.text() };
++}
++
++/**
++ * Strip tags so text assertions are not confused by markup.
++ *
++ * Attribute values are kept as text as well: an accessible name such as
++ * `aria-label="Search the catalogue"` is part of the rendered UI even though
++ * it is not visible text, and the smoke test asserts on it.
++ *
++ * @param {string} html
++ * @returns {string}
++ */
++function text(html) {
++  return html
++    .replace(/<script[\s\S]*?<\/script>/gi, " ")
++    .replace(/<style[\s\S]*?<\/style>/gi, " ")
++    .replace(/<[^>]+>/g, (tag) => {
++      // Keep the values of the attributes that carry an accessible name or a
++      // value the assertions care about.
++      const kept = [];
++      const attr = /\b(aria-label|aria-labelledby|title|placeholder|value|alt)=("([^"]*)"|'([^']*)')/gi;
++      let match;
++      while ((match = attr.exec(tag)) !== null) {
++        kept.push(match[3] ?? match[4] ?? "");
++      }
++      return kept.length > 0 ? ` ${kept.join(" ")} ` : " ";
++    })
++    .replace(/&amp;/g, "&")
++    .replace(/&#x27;/g, "'")
++    .replace(/&quot;/g, '"')
++    .replace(/&nbsp;/g, " ")
++    .replace(/\s+/g, " ")
++    .trim();
++}
++
++async function main() {
++  console.log(`\nUI smoke test against ${BASE}\n`);
++
++  // ── Catalogue page ───────────────────────────────────────────────────────
++  console.log("GET /app/products");
++  const catalog = await get("/app/products");
++  const catalogText = text(catalog.html);
++
++  check("returns 200", catalog.status === 200, `got ${catalog.status}`);
++  check("renders the page heading", catalogText.includes("Today's produce"));
++  check(
++    "renders the page description",
++    catalogText.includes("harvested in the last few days"),
++  );
++
++  // Product names from the seed data.
++  for (const name of [
++    "Alphonso Mango",
++    "Tomato",
++    "Coriander (Dhania)",
++    "Jumbo Orange",
++    "Okra (Bhindi)",
++  ]) {
++    check(`renders "${name}"`, catalogText.includes(name));
++  }
++
++  check("renders the FreshTrace header", catalogText.includes("FreshTrace"));
++  check("renders the category filters", catalogText.includes("Fruit"));
++  check("renders the Vegetables filter", catalogText.includes("Vegetables"));
++  check("renders the search box", catalogText.includes("Search the catalogue"));
++
++  // Prices are rendered as BDT currency.
++  check(
++    "renders BDT prices",
++    catalogText.includes("৳") || catalogText.includes("BDT"),
++    "no currency marker found",
++  );
++
++  // Freshness tier labels from the seeded batches.
++  check("renders a freshness tier", /Fresh|Near expiry|Good|Fair/.test(catalogText));
++  check(
++    "renders the shelf-life attribute",
++    catalogText.includes("day shelf life"),
++  );
++  check("renders origin districts", catalogText.includes("Rajshahi"));
++
++  // ── Category filter (server-rendered) ───────────────────────────────────
++  console.log("\nGET /app/products?category=fruit");
++  const fruit = await get("/app/products?category=fruit");
++  const fruitText = text(fruit.html);
++
++  check("returns 200", fruit.status === 200);
++  check("shows Alphonso Mango", fruitText.includes("Alphonso Mango"));
++  check("shows Jumbo Orange", fruitText.includes("Jumbo Orange"));
++  check(
++    "hides vegetables",
++    !fruitText.includes("Okra (Bhindi)"),
++    "vegetable product leaked into the fruit filter",
++  );
++  check(
++    "hides herbs",
++    !fruitText.includes("Coriander (Dhania)"),
++    "herb product leaked into the fruit filter",
++  );
++
++  // ── Search filter ───────────────────────────────────────────────────────
++  console.log("\nGET /app/products?q=mango");
++  const search = await get("/app/products?q=mango");
++  const searchText = text(search.html);
++
++  check("returns 200", search.status === 200);
++  check("shows Alphonso Mango", searchText.includes("Alphonso Mango"));
++  check("shows Himkopa Mango", searchText.includes("Himkopa Mango"));
++  check(
++    "hides unrelated produce",
++    !searchText.includes("Bottle Gourd (Lau)"),
++    "unrelated product leaked into the search",
++  );
++
++  // ── Product detail page ──────────────────────────────────────────────────
++  console.log("\nGET /app/products/FR-MNG-ALPHONSO");
++  const detail = await get("/app/products/FR-MNG-ALPHONSO");
++  const detailText = text(detail.html);
++
++  check("returns 200", detail.status === 200, `got ${detail.status}`);
++  check("renders the product name", detailText.includes("Alphonso Mango"));
++  check("renders the SKU", detailText.includes("FR-MNG-ALPHONSO"));
++  check(
++    "renders the description",
++    detailText.includes("Premium Alphonso mangoes"),
++  );
++  check("renders the shelf life", detailText.includes("7 days"));
++  check("renders the origin", detailText.includes("Rajshahi"));
++  check("renders the batches section", detailText.includes("Available batches"));
++  check("renders the harvest date", detailText.includes("Harvested"));
++  check("renders a batch code", /FT-MNG-\d{4}-\d{2}-\d{2}-[A-Z0-9]+/.test(detailText));
++  check("renders the add-to-basket action", detailText.includes("Add to basket"));
++  check("renders the subscription action", detailText.includes("Add to weekly subscription"));
++  check("renders a back link", detailText.includes("Back to catalogue"));
++
++  // The discount explanation ties the price to the freshness tier.
++  check(
++    "explains the freshness discount",
++    detailText.includes("discounted for freshness") ||
++      detailText.includes("computed from each batch"),
++  );
++
++  // ── Unknown product ─────────────────────────────────────────────────────
++  console.log("\nGET /app/products/NO-SUCH-SKU");
++  const missing = await get("/app/products/NO-SUCH-SKU");
++  const missingText = text(missing.html);
++
++  check("returns 404", missing.status === 404, `got ${missing.status}`);
++  check(
++    "renders the not-found message",
++    missingText.includes("couldn't find that produce"),
++  );
++
++  // ── Root redirect ───────────────────────────────────────────────────────
++  console.log("\nGET /");
++  const root = await fetch(`${BASE}/`, { redirect: "manual" });
++  check(
++    "redirects to the catalogue",
++    root.status === 307 || root.status === 302 || root.status === 308,
++    `got ${root.status}`,
++  );
++  check(
++    "redirects to /app/products",
++    (root.headers.get("location") ?? "").includes("/app/products"),
++    `location: ${root.headers.get("location")}`,
++  );
++
++  // ── API still works alongside the UI ────────────────────────────────────
++  console.log("\nGET /api/products (API still functional)");
++  const api = await fetch(`${BASE}/api/products`);
++  const apiBody = await api.json();
++  check("returns 200", api.status === 200, `got ${api.status}`);
++  check("returns 10 products", apiBody?.data?.length === 10, `got ${apiBody?.data?.length}`);
++
++  // ── Auth pages ───────────────────────────────────────────────────────────
++  console.log("\nGET /login");
++  const login = await get("/login");
++  const loginText = text(login.html);
++
++  check("returns 200", login.status === 200, `got ${login.status}`);
++  check("renders the welcome heading", loginText.includes("Welcome back"));
++  check("renders an email field", loginText.includes("Email"));
++  check("renders a password field", loginText.includes("Password"));
++  check("links to the register page", login.html.includes('href="/register"'));
++  check("does not ask for a name", !login.html.includes('name="name"'));
++
++  console.log("\nGET /register");
++  const register = await get("/register");
++  const registerText = text(register.html);
++
++  check("returns 200", register.status === 200, `got ${register.status}`);
++  check("renders the account heading", registerText.includes("Create your account"));
++  check("asks for a name", register.html.includes('name="name"'));
++  check("links to the login page", register.html.includes('href="/login"'));
++  check("states the minimum password length", registerText.includes("at least 8 characters"));
++
++  // ── Navbar session states ────────────────────────────────────────────────
++  console.log("\nGET /app/products (signed-out navbar)");
++  const anon = await get("/app/products");
++  const anonText = text(anon.html);
++
++  check("shows Login", anonText.includes("Login"));
++  check("shows Register", anonText.includes("Register"));
++  check("does not show Log out", !anonText.includes("Log out"));
++
++  // The not-yet-built destinations must not be links: a disabled-looking
++  // `<a href>` still lets keyboard and screen-reader users activate a 404.
++  for (const dead of ["/app/cart", "/app/orders", "/app/subscriptions", "/app/account"]) {
++    check(
++      `"${dead}" is not a link`,
++      !anon.html.includes(`href="${dead}"`),
++      "rendered as an anchor",
++    );
++  }
++  check(
++    "unbuilt destinations are marked aria-disabled",
++    (anon.html.match(/aria-disabled="true"/g) ?? []).length >= 4,
++  );
++  check("keeps the catalogue link live", anon.html.includes('href="/app/products"'));
++
++  // ── Registration and the signed-in navbar ────────────────────────────────
++  console.log("\nPOST /api/auth/register");
++  const email = `smoke.${Date.now()}@test.local`;
++
++  const registered = await fetch(`${BASE}/api/auth/register`, {
++    method: "POST",
++    headers: { "Content-Type": "application/json" },
++    body: JSON.stringify({ name: "Smoke Tester", email, password: "tomatoes" }),
++  });
++  const registeredBody = await registered.json();
++
++  check("returns 201", registered.status === 201, `got ${registered.status}`);
++  check("creates a customer account", registeredBody?.data?.role === "customer");
++  check("returns the account name", registeredBody?.data?.name === "Smoke Tester");
++
++  const setCookie = registered.headers.get("set-cookie") ?? "";
++  check("sets the session cookie", setCookie.includes("ft_session="));
++  check("the session cookie is HttpOnly", setCookie.includes("HttpOnly"));
++  check("the session cookie is SameSite=Lax", /SameSite=lax/i.test(setCookie));
++
++  const cookie = setCookie.split(";")[0];
++  const signedIn = await fetch(`${BASE}/app/products`, {
++    headers: { accept: "text/html", cookie },
++  });
++  const signedInText = text(await signedIn.text());
++
++  check("the signed-in navbar shows the name", signedInText.includes("Smoke Tester"));
++  check("the signed-in navbar shows Log out", signedInText.includes("Log out"));
++
++  // ── Logout ───────────────────────────────────────────────────────────────
++  console.log("\nPOST /api/auth/logout");
++  const loggedOut = await fetch(`${BASE}/api/auth/logout`, {
++    method: "POST",
++    headers: { cookie },
++  });
++
++  check("returns 200", loggedOut.status === 200, `got ${loggedOut.status}`);
++  check("clears the session cookie", /Max-Age=0/i.test(loggedOut.headers.get("set-cookie") ?? ""));
++
++  // ── Login ────────────────────────────────────────────────────────────────
++  console.log("\nPOST /api/auth/login");
++  const signedIn2 = await fetch(`${BASE}/api/auth/login`, {
++    method: "POST",
++    headers: { "Content-Type": "application/json" },
++    body: JSON.stringify({ email, password: "tomatoes" }),
++  });
++
++  check("returns 200", signedIn2.status === 200, `got ${signedIn2.status}`);
++  check(
++    "sets the session cookie",
++    (signedIn2.headers.get("set-cookie") ?? "").includes("ft_session="),
++  );
++
++  // ── Login failures ────────────────────────────────────────────────────────
++  // An unknown email and a wrong password must be indistinguishable, so the
++  // two responses are compared rather than each being checked in isolation.
++  console.log("\nPOST /api/auth/login (bad credentials)");
++
++  const unknownEmail = await fetch(`${BASE}/api/auth/login`, {
++    method: "POST",
++    headers: { "Content-Type": "application/json" },
++    body: JSON.stringify({ email: `nobody.${Date.now()}@test.local`, password: "tomatoes" }),
++  });
++  const unknownEmailBody = await unknownEmail.json();
++
++  const wrongPassword = await fetch(`${BASE}/api/auth/login`, {
++    method: "POST",
++    headers: { "Content-Type": "application/json" },
++    body: JSON.stringify({ email, password: "wrong-password" }),
++  });
++  const wrongPasswordBody = await wrongPassword.json();
++
++  check("an unknown email returns 401", unknownEmail.status === 401, `got ${unknownEmail.status}`);
++  check("a wrong password returns 401", wrongPassword.status === 401, `got ${wrongPassword.status}`);
++  check(
++    "both failures report the same code",
++    unknownEmailBody?.error?.code === wrongPasswordBody?.error?.code,
++    `${unknownEmailBody?.error?.code} vs ${wrongPasswordBody?.error?.code}`,
++  );
++  check(
++    "both failures report the same message",
++    unknownEmailBody?.error?.message === wrongPasswordBody?.error?.message,
++  );
++  check(
++    "neither failure sets a session cookie",
++    !(unknownEmail.headers.get("set-cookie") ?? "").includes("ft_session=") &&
++      !(wrongPassword.headers.get("set-cookie") ?? "").includes("ft_session="),
++  );
++
++  console.log("");
++
++  if (failures.length > 0) {
++    console.log(
++      `❌ ${failures.length} check(s) failed:\n${failures.map((f) => `   - ${f}`).join("\n")}\n`,
++    );
++    process.exit(1);
++  }
++  console.log("✅ All UI checks passed.\n");
++}
++
++main().catch((err) => {
++  console.error("UI smoke test crashed:", err);
++  process.exit(1);
++});

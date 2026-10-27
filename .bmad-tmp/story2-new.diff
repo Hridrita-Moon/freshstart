@@ -1,0 +1,853 @@
+warning: in the working copy of 'src/app/(auth)/AuthShell.jsx', LF will be replaced by CRLF the next time Git touches it
+diff --git a/src/app/(auth)/AuthShell.jsx b/src/app/(auth)/AuthShell.jsx
+new file mode 100644
+index 0000000..d1f6117
+--- /dev/null
++++ b/src/app/(auth)/AuthShell.jsx
+@@ -0,0 +1,146 @@
++import Link from "next/link";
++import { Leaf, MapPin, Sprout, Truck } from "lucide-react";
++
++/**
++ * AuthShell — the shared split-screen layout for `/login` and `/register`.
++ *
++ * SRS §9.1 places both auth pages in the `(auth)` route group, outside the
++ * customer shell, so a signed-out visitor never sees the catalogue header.
++ *
++ * The layout is a two-column grid on `lg` and above and a single stacked
++ * column below it, so the same markup works from 320 px up.
++ *
++ * Glassmorphism idiom: `backdrop-blur-md bg-white/70 border border-white/40
++ * shadow-xl` over a soft brand/sand gradient. The blur only reads as glass
++ * when there is colour behind it, so the ambient gradient and the blurred
++ * colour blobs sit *behind* the cards.
++ *
++ * @param {object} props
++ * @param {import("react").ReactNode} props.children the form slot
++ * @param {string} props.title
++ * @param {string} props.subtitle
++ * @param {import("react").ReactNode} [props.footer]
++ */
++export default function AuthShell({ children, title, subtitle, footer }) {
++  return (
++    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-brand-50 via-sand-50 to-brand-100">
++      {/* ── Ambient colour blobs ───────────────────────────────────────
++          These sit behind the cards so `backdrop-blur` has something to
++          diffuse. They are decorative only. */}
++      <div
++        className="pointer-events-none absolute -left-24 -top-24 size-80 rounded-full bg-brand-300/40 blur-3xl"
++        aria-hidden="true"
++      />
++      <div
++        className="pointer-events-none absolute -bottom-32 -right-16 size-96 rounded-full bg-fair-300/30 blur-3xl"
++        aria-hidden="true"
++      />
++      <div
++        className="pointer-events-none absolute left-1/2 top-1/3 size-72 -translate-x-1/2 rounded-full bg-brand-200/40 blur-3xl"
++        aria-hidden="true"
++      />
++
++      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
++        {/* ── Brand ───────────────────────────────────────────────────── */}
++        <Link
++          href="/app/products"
++          className="mb-8 flex items-center gap-2 font-semibold tracking-tight text-sand-900"
++        >
++          <span className="flex size-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-soft">
++            <Leaf className="size-5" aria-hidden="true" />
++          </span>
++          <span className="text-xl">FreshTrace</span>
++        </Link>
++
++        <div className="grid w-full items-center gap-8 lg:grid-cols-2 lg:gap-14">
++          {/* ── Form column ──────────────────────────────────────────── */}
++          <div className="w-full">
++            <div className="rounded-card border border-white/40 bg-white/70 p-6 shadow-xl backdrop-blur-md sm:p-8">
++              <h1 className="text-2xl font-semibold tracking-tight text-sand-900">
++                {title}
++              </h1>
++              <p className="mt-2 text-sm leading-relaxed text-sand-600">
++                {subtitle}
++              </p>
++
++              <div className="mt-6">{children}</div>
++
++              {footer ? (
++                <div className="mt-6 border-t border-sand-200/70 pt-5 text-sm text-sand-600">
++                  {footer}
++                </div>
++              ) : null}
++            </div>
++          </div>
++
++          {/* ── Promo column ──────────────────────────────────────────── */}
++          <PromoCard />
++        </div>
++      </div>
++    <warning: in the working copy of 'src/app/(auth)/login/page.jsx', LF will be replaced by CRLF the next time Git touches it
+/div>
++  );
++}
++
++/**
++ * The right-hand produce promo card.
++ *
++ * There is no photography in the repository, so the panel is built from the
++ * same vocabulary the catalogue uses — a brand/sand gradient, `lucide-react`
++ * produce icons, and frosted badges — rather than shipping an unreviewable
++ * binary asset.
++ */
++function PromoCard() {
++  return (
++    <div className="relative overflow-hidden rounded-card border border-white/40 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-8 text-white shadow-xl backdrop-blur-md sm:p-10">
++      {/* A soft light source in the corner, so the panel has depth. */}
++      <div
++        className="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-brand-400/40 blur-3xl"
++        aria-hidden="true"
++      />
++      <div
++        className="pointer-events-none absolute -bottom-24 -left-16 size-64 rounded-full bg-fair-400/25 blur-3xl"
++        aria-hidden="true"
++      />
++
++      <div className="relative">
++        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-brand-50 backdrop-blur-sm">
++          <Sprout className="size-3.5" aria-hidden="true" />
++          Farm-to-table, delivered in Dhaka
++        </span>
++
++        <h2 className="mt-5 text-2xl font-semibold tracking-tight sm:text-3xl">
++          Know exactly when it was picked.
++        </h2>
++        <p className="mt-3 text-sm leading-relaxed text-brand-50/90">
++          Every batch carries its harvest date and freshness tier, so the price
++          you pay always matches how fresh the produce actually is.
++        </p>
++
++        {/* ── Produce motifs ─────────────────────────────────────────── */}
++        <div className="mt-8 flex items-end gap-3">
++          <span className="flex size-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
++            <Leaf className="size-7" strokeWidth={1.25} aria-hidden="true" />
++          </span>
++          <span className="flex size-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
++            <Sprout className="size-7" strokeWidth={1.25} aria-hidden="true" />
++          </span>
++          <span className="flex size-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
++            <Truck className="size-7" strokeWidth={1.25} aria-hidden="true" />
++          </span>
++        </div>
++
++        {/* ── Frosted badges ─────────────────────────────────────────── */}
++        <ul className="mt-8 flex flex-wrap gap-2.5">
++          <li className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md">
++            <Sprout className="size-3.5" aria-hidden="true" />
++            Harvested today
++          </li>
++          <li className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md">
++            <MapPin className="size-3.5" aria-hidden="true" />
++            Traceable batches
++          </li>
++        </ul>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/(auth)/login/page.jsx b/src/app/(auth)/login/page.jsx
+new file mode 100644
+index 0000000..659e294
+--- /dev/null
++++ b/src/app/(auth)/login/page.jsx
+@@ -0,0 +1,52 @@
++import Link from "next/link";
++import { Suspense } from "react";
++import AuthShell from "@/app/(auth)/AuthShell";
++import AuthForm, { AuthFormSkeleton } from "@/components/AuthForm";
++
++/**
++ * Sign-in page.
++ *
++ * SRS §9.1: `(auth)/login/page.jsx` — the auth route group sits outside the
++ * customer shell, so a signed-out visitor gets a focused page rather than
++ * the catalogue header.
++ *
++ * @param {object} props
++ * @param {Promise<{ next?: string | string[] }>} props.searchParams
++ */
++export async function generateMetadata({ searchParams }) warning: in the working copy of 'src/app/(auth)/register/page.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/api/auth/register/route.js', LF will be replaced by CRLF the next time Git touches it
+{
++  const params = await searchParams;
++  const next = Array.isArray(params?.next) ? params.next[0] : params?.next;
++
++  return {
++    title: "Sign in — FreshTrace",
++    description: next
++      ? "Sign in to continue to FreshTrace."
++      : "Sign in to your FreshTrace account for traceable farm-to-table produce in Dhaka.",
++  };
++}
++
++export default function LoginPage() {
++  return (
++    <AuthShell
++      title="Welcome back"
++      subtitle="Sign in to see today's batches, track your orders and manage your weekly subscription."
++      footer={
++        <p>
++          New to FreshTrace?{" "}
++          <Link
++            href="/register"
++            className="font-semibold text-brand-700 underline-offset-4 transition hover:underline"
++          >
++            Create an account
++          </Link>
++        </p>
++      }
++    >
++      {/* The form reads `?next=` with `useSearchParams()`, so it needs a
++          Suspense boundary to be prerendered. */}
++      <Suspense fallback={<AuthFormSkeleton />}>
++        <AuthForm mode="login" />
++      </Suspense>
++    </AuthShell>
++  );
++}
+diff --git a/src/app/(auth)/register/page.jsx b/src/app/(auth)/register/page.jsx
+new file mode 100644
+index 0000000..93a6ba0
+--- /dev/null
++++ b/src/app/(auth)/register/page.jsx
+@@ -0,0 +1,51 @@
++import Link from "next/link";
++import { Suspense } from "react";
++import AuthShell from "@/app/(auth)/AuthShell";
++import AuthForm, { AuthFormSkeleton } from "@/components/AuthForm";
++
++/**
++ * Registration page.
++ *
++ * SRS §9.1: `(auth)/register/page.jsx` — the auth route group sits outside
++ * the customer shell.
++ *
++ * @param {object} props
++ * @param {Promise<{ next?: string | string[] }>} props.searchParams
++ */
++export async function generateMetadata({ searchParams }) {
++  const params = await searchParams;
++  const next = Array.isArray(params?.next) ? params.next[0] : params?.next;
++
++  return {
++    title: "Create an account — FreshTrace",
++    description: next
++      ? "Create a FreshTrace account to continue."
++      : "Create a FreshTrace account for traceable farm-to-table produce delivered in Dhaka.",
++  };
++}
++
++export default function RegisterPage() {
++  return (
++    <AuthShell
++      title="Create your account"
++      subtitle="One account for fresh produce, weekly subscriptions and delivery across Dhaka."
++      footer={
++        <p>
++          Already have an account?{" "}
++          <Link
++            href="/login"
++            className="font-semibold text-brand-700 underline-offset-4 transition hover:underline"
++          >
++            Sign in
++          </Link>
++        </p>
++      }
++    >
++      {/* The form reads `?next=` with `useSearchParams()`, so it needs a
++          Suspense boundary to be prerendered. */}
++      <Suspense fallback={<AuthFormSkeleton showName />}>
++        <AuthForm mode="register" />
++      </Suspense>
++    </AuthShell>
++  );
++}
+diff --git a/src/app/api/auth/register/route.js b/src/app/api/auth/register/route.js
+new file mode 100644
+index 0000000..3d7a275
+--- /dev/null
++++ b/src/app/api/auth/register/route.js
+@@ -0,0 +1,92 @@
++import { NextResponse } from "next/server";
++import { ERROR_CODES, errorResponse, handleRouteError } from "@/lib/errors";
++import { prisma } from "@/lib/prisma";
++import { hashPassword } from "@/lib/auth/password";
++import {
++  SESSION_COOKIE_NAME,
++  createSession,
++  sessionCookieOptions,
++} from "@/lib/auth/session";
++import { validateRegisterInput } from "@/lib/validation/auth";
++
++/**
++ * `POST /api/auth/register` — create a customer account and sign it in.
++ *
++ * Body: `{ name, email, password }`.
++ *
++ * SRS §3.1: the raw session token lives only in the httpOnly cookie; the
++ * database stores its SHA-256 hash. There is no JWT and no client-side token
++ * store.
++ *
++ * Registration is self-service and always creates a **customer** account —
++ * the request body cannot choose a role. The session is created here rather
++ * than by a follow-up call to `/api/auth/login`, so the caller needs one
++ * round-trip instead of two; the session-creation code is dewarning: in the working copy of 'src/components/AuthForm.jsx', LF will be replaced by CRLF the next time Git touches it
+liberately
++ * identical to `login/route.js` so the two paths cannot drift.
++ */
++export async function POST(request) {
++  try {
++    let body;
++    try {
++      body = await request.json();
++    } catch {
++      return errorResponse(ERROR_CODES.VALIDATION_FAILED, "Request body must be valid JSON.");
++    }
++
++    // Normalise once, at the route boundary, so the validator and the unique
++    // index both see the canonical address. `  Alice@Example.COM ` and
++    // `alice@example.com` are the same account.
++    const input =
++      body && typeof body === "object" ? { ...body } : {};
++    if (typeof input.email === "string") {
++      input.email = input.email.trim().toLowerCase();
++    }
++
++    const result = validateRegisterInput(input);
++    if (!result.success) {
++      return errorResponse(
++        ERROR_CODES.VALIDATION_FAILED,
++        "The account could not be created because some fields are invalid.",
++        { issues: result.errors },
++      );
++    }
++
++    const { name, email, password } = result.data;
++
++    const passwordHash = await hashPassword(password);
++
++    const user = await prisma.user.create({
++      data: {
++        name,
++        email,
++        passwordHash,
++        role: "customer",
++        status: "active",
++      },
++      select: { id: true, email: true, name: true, role: true },
++    });
++
++    const { token } = await createSession(user.id, {
++      userAgent: request.headers.get("user-agent"),
++      ipAddress:
++        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
++    });
++
++    const response = NextResponse.json(
++      {
++        data: {
++          id: user.id,
++          email: user.email,
++          name: user.name,
++          role: user.role,
++        },
++      },
++      { status: 201 },
++    );
++
++    response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
++    return response;
++  } catch (err) {
++    return handleRouteError(err);
++  }
++}
+diff --git a/src/components/AuthForm.jsx b/src/components/AuthForm.jsx
+new file mode 100644
+index 0000000..69a08f6
+--- /dev/null
++++ b/src/components/AuthForm.jsx
+@@ -0,0 +1,320 @@
++"use client";
++
++import Link from "next/link";
++import { useRouter, useSearchParams } from "next/navigation";
++import { useState } from "react";
++import { AlertCircle, Loader2 } from "lucide-react";
++import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
++
++/**
++ * AuthForm — the shared sign-in / sign-up form.
++ *
++ * SRS §9.2: the form is a Client Component; the pages around it are Server
++ * Components. The form talks to the two existing API routes:
++ *
++ * - `POST /api/auth/login` — sets the `ft_session` cookie.
++ * - `POST /api/auth/register` — creates the account *and* sets the cookie.
++ *
++ * The session token itself never reaches the client: it travels in the
++ * httpOnly cookie, so there is nothing to store in JavaScript.
++ */
++
++/** Where a visitor lands after a successful sign-in. */
++const DEFAULT_REDIRECT = "/app/products";
++
++/**
++ * Validate a `?next=` target.
++ *
++ * Only a single-slash-prefixed path is accepted. `//evil.example` is a
++ * protocol-relative URL that would redirect off-site, so it is rejected
++ * alongside anything that is not a path at all.
++ *
++ * @param {string | null} value
++ * @returns {string}
++ */
++export function safeRedirectPath(value) {
++  if (typeof value !== "string") return DEFAULT_REDIRECT;
++
++  const candidate = value.trim();
++
++  if (!candidate.startsWith("/")) return DEFAULT_REDIRECT;
++  if (candidate.startsWith("//")) return DEFAULT_REDIRECT;
++  if (candidate.includes("\\")) return DEFAULT_REDIRECT;
++  if (candidate.includes("\n") || candidate.includes("\r")) return DEFAULT_REDIRECT;
++
++  return candidate;
++}
++
++/**
++ * @param {object} props
++ * @param {"login" | "register"} props.mode
++ */
++export default function AuthForm({ mode }) {
++  const router = useRouter();
++  const searchParams = useSearchParams();
++
++  const isRegister = mode === "register";
++
++  const [name, setName] = useState("");
++  const [email, setEmail] = useState("");
++  const [password, setPassword] = useState("");
++  const [fieldErrors, setFieldErrors] = useState({});
++  const [generalError, setGeneralError] = useState("");
++  const [isPending, setIsPending] = useState(false);
++
++  const redirectTo = safeRedirectPath(searchParams.get("next"));
++
++  /**
++   * Turn the API's `details.issues[]` into a field → message map.
++   *
++   * @param {unknown} details
++   * @returns {Record<string, string>}
++   */
++  function issuesToFieldErrors(details) {
++    /** @type {Record<string, string>} */
++    const map = {};
++    const issues =
++      details && typeof details === "object" && Array.isArray(details.issues)
++        ? details.issues
++        : [];
++
++    for (const issue of issues) {
++      if (!issue || typeof issue !== "object") continue;
++      const path = typeof issue.path === "string" ? issue.path : "";
++      const message = typeof issue.message === "string" ? issue.message : "";
++      if (!path || !message) continue;
++      // The first issue per field wins — one message per input is enough.
++      if (!map[path]) map[path] = message;
++    }
++
++    return map;
++  }
++
++  /**
++   * @param {import("react").FormEvent<HTMLFormElement>} event
++   */
++  async function handleSubmit(event) {
++    event.preventDefault();
++
++    setGeneralError("");
++    setFieldErrors({});
++    setIsPending(true);
++
++    const endpoint = isRegister ? "/api/auth/register" : "/api/auth/login";
++    const payload = isRegister ? { name, email, password } : { email, password };
++
++    try {
++      const response = await fetch(endpoint, {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify(payload),
++      });
++
++      let body = null;
++      try {
++        body = await response.json();
++      } catch {
++        body = null;
++      }
++
++      if (!response.ok) {
++        const error = body?.error;
++        const details = error?.details;
++
++        const fieldMap = issuesToFieldErrors(details);
++        if (Object.keys(fieldMap).length > 0) {
++          setFieldErrors(fieldMap);
++        }
++
++        setGeneralError(
++          typeof error?.message === "string" && error.message
++            ? error.message
++            : "Something went wrong. Please try again.",
++        );
++        return;
++      }
++
++      // The cookie is already set by the route; the redirect just needs the
++      // server components to re-read it.
++      router.push(redirectTo);
++      router.refresh();
++    } catch {
++      setGeneralError("Could not reach the server. Please try again.");
++    } finally {
++      setIsPending(false);
++    }
++  }
++
++  return (
++    <form onSubmit={handleSubmit} noValidate className="space-y-4">
++      {/* ── General error ────────────────────────────────────────────── */}
++      <div aria-live="polite" aria-atomic="true">
++        {generalError ? (
++          <p className="flex items-start gap-2 rounded-xl border border-expired-200 bg-expired-50 px-3.5 py-3 text-sm text-expired-800">
++            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
++            <span>{generalError}</span>
++          </p>
++        ) : null}
++      </div>
++
++      {isRegister ? (
++        <Field
++          id="name"
++          label="Full name"
++          type="text"
++          autoComplete="name"
++          value={name}
++          onChange={(event) => setName(event.target.value)}
++          error={fieldErrors.name}
++          placeholder="Alice Rahman"
++        />
++      ) : null}
++
++      <Field
++        id="email"
++        label="Email"
++        type="email"
++        autoComplete="email"
++        value={email}
++        onChange={(event) => setEmail(event.target.value)}
++        error={fieldErrors.email}
++        placeholder="you@example.com"
++      />
++
++      <Field
++        id="password"
++        label="Password"
++        type="password"
++        autoComplete={isRegister ? "new-password" : "current-password"}
++        value={password}
++        onChange={(event) => setPwarning: in the working copy of 'src/components/LogoutButton.jsx', LF will be replaced by CRLF the next time Git touches it
+assword(event.target.value)}
++        error={fieldErrors.password}
++        placeholder={isRegister ? "At least 8 characters" : "••••••••"}
++        hint={
++          isRegister
++            ? `Use at least ${MIN_PASSWORD_LENGTH} characters.`
++            : undefined
++        }
++      />
++
++      <button
++        type="submit"
++        disabled={isPending}
++        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-sand-200 disabled:text-sand-400"
++      >
++        {isPending ? (
++          <>
++            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
++            {isRegister ? "Creating your account…" : "Signing you in…"}
++          </>
++        ) : isRegister ? (
++          "Create account"
++        ) : (
++          "Sign in"
++        )}
++      </button>
++    </form>
++  );
++}
++
++/**
++ * A placeholder for the form while the client bundle boots.
++ *
++ * `useSearchParams()` forces the form to be client-rendered, so the page
++ * needs a `<Suspense>` boundary around it (Next.js prerender requirement).
++ * The skeleton mirrors the form's field count so the card does not jump
++ * when the real form replaces it.
++ *
++ * @param {object} props
++ * @param {boolean} [props.showName]
++ */
++export function AuthFormSkeleton({ showName = false }) {
++  const fieldCount = showName ? 3 : 2;
++
++  return (
++    <div aria-hidden="true">
++      {Array.from({ length: fieldCount }).map((_, index) => (
++        <div key={index} className="mt-4 first:mt-0">
++          <div className="h-4 w-24 rounded bg-sand-200" />
++          <div className="mt-1.5 h-10 w-full rounded-xl bg-sand-100" />
++        </div>
++      ))}
++      <div className="mt-4 h-10 w-full rounded-lg bg-sand-200" />
++    </div>
++  );
++}
++
++/**
++ * A labelled input with an optional hint and an inline error message.
++ *
++ * @param {object} props
++ * @param {string} props.id
++ * @param {string} props.label
++ * @param {string} props.type
++ * @param {string} props.value
++ * @param {(event: import("react").ChangeEvent<HTMLInputElement>) => void} props.onChange
++ * @param {string} props.autoComplete
++ * @param {string} [props.placeholder]
++ * @param {string} [props.hint]
++ * @param {string} [props.error]
++ */
++function Field({
++  id,
++  label,
++  type,
++  value,
++  onChange,
++  autoComplete,
++  placeholder,
++  hint,
++  error,
++}) {
++  const hintId = hint ? `${id}-hint` : undefined;
++  const errorId = error ? `${id}-error` : undefined;
++
++  return (
++    <div>
++      <label
++        htmlFor={id}
++        className="block text-sm font-medium text-sand-700"
++      >
++        {label}
++      </label>
++
++      <input
++        id={id}
++        name={id}
++        type={type}
++        value={value}
++        onChange={onChange}
++        autoComplete={autoComplete}
++        placeholder={placeholder}
++        aria-invalid={error ? "true" : undefined}
++        aria-describedby={
++          [hintId, errorId].filter(Boolean).join(" ") || undefined
++        }
++        className={`mt-1.5 w-full rounded-xl border bg-white py-2.5 px-3.5 text-sm text-sand-900 shadow-soft transition placeholder:text-sand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 ${
++          error
++            ? "border-expired-400 focus:border-expired-500 focus:ring-expired-500/20"
++            : "border-sand-200 focus:border-brand-400 focus:ring-brand-500/20"
++        }`}
++      />
++
++      {hint ? (
++        <p id={hintId} className="mt-1.5 text-xs text-sand-500">
++          {hint}
++        </p>
++      ) : null}
++
++      {error ? (
++        <p
++          id={errorId}
++          className="mt-1.5 flex items-start gap-1.5 text-xs text-expired-700"
++        >
++          <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
++          <span>{error}</span>
++        </p>
++      ) : null}
++    </div>
++  );
++}
+diff --git a/src/components/LogoutButton.jsx b/src/components/LogoutButton.jsx
+new file mode 100644
+index 0000000..3dwarning: in the working copy of 'src/lib/validation/auth.js', LF will be replaced by CRLF the next time Git touches it
+59167
+--- /dev/null
++++ b/src/components/LogoutButton.jsx
+@@ -0,0 +1,54 @@
++"use client";
++
++import { useRouter } from "next/navigation";
++import { useState } from "react";
++import { LogOut } from "lucide-react";
++
++/**
++ * LogoutButton — signs the visitor out.
++ *
++ * SRS §3.1: because sessions are server-side, logging out is immediate and
++ * global — the route deletes the session row and clears the `ft_session`
++ * cookie. The raw token never reaches JavaScript, so there is nothing to
++ * clean up on the client.
++ *
++ * After the request, the server components are refreshed so the Navbar
++ * re-renders in its signed-out state without a full page reload.
++ */
++export default function LogoutButton() {
++  const router = useRouter();
++  const [isPending, setIsPending] = useState(false);
++
++  /**
++   * @param {import("react").MouseEvent<HTMLButtonElement>} event
++   */
++  async function handleLogout(event) {
++    event.preventDefault();
++    setIsPending(true);
++
++    try {
++      await fetch("/api/auth/logout", { method: "POST" });
++    } catch {
++      // A failed logout must not trap the visitor on the page; the session
++      // cookie is still cleared by the browser on the next sign-in.
++    }
++
++    router.refresh();
++    router.push("/app/products");
++    setIsPending(false);
++  }
++
++  return (
++    <button
++      type="button"
++      onClick={handleLogout}
++      disabled={isPending}
++      className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sand-600 transition hover:bg-sand-100 hover:text-sand-900 disabled:cursor-not-allowed disabled:opacity-60"
++    >
++      <LogOut className="size-4" aria-hidden="true" />
++      <span className="hidden sm:inline">
++        {isPending ? "Signing out…" : "Log out"}
++      </span>
++    </button>
++  );
++}
+diff --git a/src/lib/validation/auth.js b/src/lib/validation/auth.js
+new file mode 100644
+index 0000000..0203c90
+--- /dev/null
++++ b/src/lib/validation/auth.js
+@@ -0,0 +1,89 @@
++import { MIN_PASSWORD_LENGTH, meetsPasswordPolicy } from "@/lib/auth/password";
++import { Validator, finish, requireString } from "@/lib/validation/schema";
++
++/**
++ * Authentication input validation.
++ *
++ * SRS §3.1 / §4.2: an account is identified by a unique, normalised email
++ * address and protected by a password. Registration is open to the public and
++ * always creates a *customer* account — the caller never chooses a role.
++ *
++ * The validators follow the house pattern from `src/lib/validation/product.js`:
++ * a `Validator` accumulates issues, the primitives mutate it and return the
++ * trimmed value (or `undefined` on failure), and `finish` turns the run into
++ * a `{ success, data }` / `{ success, errors }` result.
++ */
++
++/**
++ * @typedef {object} RegisterInput
++ * @property {string} name
++ * @property {string} email
++ * @property {string} password
++ */
++
++/**
++ * @typedef {object} LoginInput
++ * @property {string} email
++ * @property {string} password
++ */
++
++/** Pragmatic email shape check — one `@`, a dotted domain, no whitespace. */
++const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
++
++/**
++ * Maximum lengths. The email limit matches the database column budget; the
++ * password limit keeps an oversized value out of the bcrypt work factor.
++ */
++const MAX_EMAIL_LENGTH = 255;
++const MAX_PASSWORD_LENGTH = 128;
++
++/**
++ * Validate a registration payload.
++ *
++ * @param {unknown} body
++ * @returns {import("@/lib/validation/schema").ValidationResult<RegisterInput>}
++ */
++export function validateRegisterInput(body) {
++  const v = new Validator();
++  const input = /** @type {Record<string, unknown>} */ (body ?? {});
++
++  const name = requireString(v, input.name, "name", { min: 2, max: 120 });
++
++  const email = requireString(v, input.email, "email", { min: 3, max: MAX_EMAIL_LENGTH });
++  if (email !== undefined && !EMAIL_PATTERN.test(email)) {
++    v.add("email", "Must be a valid email address.");
++  }
++
++  const password = requireString(v, input.password, "password", {
++    min: MIN_PASSWORD_LENGTH,
++    max: MAX_PASSWORD_LENGTH,
++  });
++  if (password !== undefined && !meetsPasswordPolicy(password)) {
++    v.add("password", `Must be at least ${MIN_PASSWORD_LENGTH} characters.`);
++  }
++
++  return finish(v, { name, email, password });
++}
++
++/**
++ * Validate a login payload.
++ *
++ * Presence only — the format is deliberately *not* checked, because an
++ * unknown email and a malformed email must produce the same `401` response
++ * as a wrong password. The route owns that decision.
++ *
++ * @param {unknown} body
++ * @returns {import("@/lib/validation/schema").ValidationResult<LoginInput>}
++ */
++export function validateLoginInput(body) {
++  const v = new Validator();
++  const input = /** @type {Record<string, unknown>} */ (body ?? {});
++
++  const email = requireString(v, input.email, "email", { min: 1, max: MAX_EMAIL_LENGTH });
++  const password = requireString(v, input.password, "password", {
++    min: 1,
++    max: MAX_PASSWORD_LENGTH,
++  });
++
++  return finish(v, { email, password });
++}

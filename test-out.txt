@@ -1,0 +1,62 @@
+
+> freshtrace-app@0.1.0 test
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90mC:/Users/BS00753/OneDrive - Brain Station 23/FreshStart/freshtrace-app[39m
+
+[90mstdout[2m | tests/auth-register.test.js[2m > [22m[2mPOST /api/auth/register[2m > [22m[2mrejects a duplicate email with 409 conflict and creates no second user
+[22m[39mprisma:error 
+Invalid `prisma.user.create()` invocation in
+C:/Users/BS00753/OneDrive - Brain Station 23/FreshStart/freshtrace-app/src/app/api/auth/register/route.js:58:36
+
+  55 
+  56 const passwordHash = await hashPassword(password);
+  57 
+→ 58 const user = await prisma.user.create(
+Unique constraint failed on the fields: (`email`)
+
+ [32m✓[39m tests/auth-register.test.js [2m([22m[2m10 tests[22m[2m)[22m[33m 2805[2mms[22m[39m
+   [32m✓[39m POST /api/auth/register [2m(10)[22m
+     [33m[2m✓[22m[39m creates a customer account and returns 201[33m 388[2mms[22m[39m
+     [33m[2m✓[22m[39m stores a bcrypt hash rather than the plaintext[33m 406[2mms[22m[39m
+     [33m[2m✓[22m[39m sets the ft_session cookie as httpOnly and SameSite=Lax[33m 380[2mms[22m[39m
+     [33m[2m✓[22m[39m creates a session row for the new user[33m 394[2mms[22m[39m
+     [33m[2m✓[22m[39m normalises the email to lower case and trims whitespace[33m 417[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects a duplicate email with 409 conflict and creates no second user[33m 772[2mms[22m[39m
+ [32m✓[39m tests/password.test.js [2m([22m[2m9 tests[22m[2m)[22m[33m 2814[2mms[22m[39m
+   [32m✓[39m hashPassword [2m(3)[22m
+     [33m[2m✓[22m[39m produces a bcrypt hash with the configured cost factor[33m 316[2mms[22m[39m
+     [33m[2m✓[22m[39m never stores the plaintext[33m 319[2mms[22m[39m
+     [33m[2m✓[22m[39m salts each hash, so the same password hashes differently[33m 715[2mms[22m[39m
+   [32m✓[39m verifyPassword [2m(4)[22m
+     [33m[2m✓[22m[39m accepts the correct password[33m 707[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects an incorrect password[33m 752[2mms[22m[39m
+ [32m✓[39m tests/products.integration.test.js [2m([22m[2m22 tests[22m[2m)[22m[33m 1136[2mms[22m[39m
+ [32m✓[39m tests/session.test.js [2m([22m[2m19 tests[22m[2m)[22m[32m 181[2mms[22m[39m
+ [32m✓[39m tests/proxy.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+[90mstderr[2m | tests/errors.test.js[2m > [22m[2mhandleRouteError[2m > [22m[2mhides internals of an unexpected error
+[22m[39m[api] unhandled error: Error: database exploded at /secret/path
+    at C:/Users/BS00753/OneDrive - Brain Station 23/FreshStart/freshtrace-app/tests/errors.test.js:87:34
+    at [90mfile:///C:/Users/BS00753/OneDrive%20-%20Brain%20Station%2023/FreshStart/freshtrace-app/[39mnode_modules/[4mvitest[24m/dist/chunks/run.BPv-BBRv.js:1632:35
+    at [90mfile:///C:/Users/BS00753/OneDrive%20-%20Brain%20Station%2023/FreshStart/freshtrace-app/[39mnode_modules/[4mvitest[24m/dist/chunks/run.BPv-BBRv.js:2801:26
+    at [90mfile:///C:/Users/BS00753/OneDrive%20-%20Brain%20Station%2023/FreshStart/freshtrace-app/[39mnode_modules/[4mvitest[24m/dist/chunks/run.BPv-BBRv.js:3338:20
+    at new Promise (<anonymous>)
+    at runWithCancel [90m(file:///C:/Users/BS00753/OneDrive%20-%20Brain%20Station%2023/FreshStart/freshtrace-app/[39mnode_modules/[4mvitest[24m/dist/chunks/run.BPv-BBRv.js:3333:10[90m)[39m
+    at [90mfile:///C:/Users/BS00753/OneDrive%20-%20Brain%20Station%2023/FreshStart/freshtrace-app/[39mnode_modules/[4mvitest[24m/dist/chunks/run.BPv-BBRv.js:3318:20
+    at new Promise (<anonymous>)
+    at runWithTimeout [90m(file:///C:/Users/BS00753/OneDrive%20-%20Brain%20Station%2023/FreshStart/freshtrace-app/[39mnode_modules/[4mvitest[24m/dist/chunks/run.BPv-BBRv.js:3276:10[90m)[39m
+    at [90mfile:///C:/Users/BS00753/OneDrive%20-%20Brain%20Station%2023/FreshStart/freshtrace-app/[39mnode_modules/[4mvitest[24m/dist/chunks/run.BPv-BBRv.js:3904:64
+
+ [32m✓[39m tests/errors.test.js [2m([22m[2m10 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/schema.test.js [2m([22m[2m30 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/validation.test.js [2m([22m[2m18 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/decay.test.js [2m([22m[2m26 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/auth-validation.test.js [2m([22m[2m21 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/decay-constants.test.js [2m([22m[2m11 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m11 passed[39m[22m[90m (11)[39m
+[2m      Tests [22m [1m[32m179 passed[39m[22m[90m (179)[39m
+[2m   Start at [22m 13:28:42
+[2m   Duration [22m 35.50s[2m (setup 76%, tests 21%, import 2%, transform 1%)[22m
+

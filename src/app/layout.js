@@ -18,7 +18,11 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    // `data-scroll-behavior="smooth"` tells Next.js that the smooth scrolling
+    // set in `globals.css` is intentional, so it does not force
+    // `scroll-behavior: auto` during route transitions. Without it the
+    // catalogue's filter links animate a long scroll on every navigation.
+    <html lang="en" data-scroll-behavior="smooth">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

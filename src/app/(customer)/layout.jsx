@@ -1,0 +1,161 @@
+import Link from "next/link";
+import { Leaf, ShoppingBasket, User } from "lucide-react";
+import { getSession } from "@/lib/auth/session";
+import LogoutButton from "@/components/LogoutButton";
+
+/**
+ * Customer shell layout.
+ *
+ * SRS §9.1 places the customer shell at `(customer)/layout.jsx` and
+ * SRS §9.2 notes the route group is protected by a layout-level guard that
+ * checks the session and role server-side.
+ *
+ * The auth **guard** is intentionally not wired up: the catalogue is browsable
+ * without an account, and a guard would lock every visitor out. The header is
+ * session-*aware* though — it shows Login / Register when signed out and the
+ * user's name plus a Log out control when signed in.
+ *
+ * The session is resolved **server-side** with `getSession()` — it reads the
+ * `next/headers` cookie store, which is unavailable in a Client Component.
+ * The result is passed down as props; only the Logout button needs
+ * `"use client"`.
+ */
+export default async function CustomerLayout({ children }) {
+  const session = await getSession();
+
+  // A suspended account's sessions are revoked when it next tries to sign in,
+  // but a session that is already live would otherwise keep rendering the
+  // signed-in Navbar. Treat a suspended user as signed out.
+  const user = session?.user && session.user.status !== "suspended" ? session.user : null;
+
+  return (
+    <div className="flex min-h-screen flex-col bg-sand-50">
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 border-b border-sand-200 bg-white/90 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
+          <Link
+            href="/app/products"
+            className="flex items-center gap-2 font-semibold tracking-tight text-sand-900"
+          >
+            <span className="flex size-8 items-center justify-center rounded-lg bg-brand-600 text-white">
+              <Leaf className="size-4" aria-hidden="true" />
+            </span>
+            <span className="text-lg">FreshTrace</span>
+          </Link>
+
+          <nav
+            className="hidden items-center gap-1 text-sm font-medium text-sand-600 md:flex"
+            aria-label="Main"
+          >
+            <Link
+              href="/app/products"
+              className="rounded-lg px-3 py-2 transition hover:bg-sand-100 hover:text-sand-900"
+            >
+              Catalogue
+            </Link>
+
+            {/* ── Not-yet-built destinations ───────────────────────────
+                These pages belong to later stories. They are rendered as
+                non-interactive spans rather than links: a disabled-looking
+                `<a href>` still lets keyboard and screen-reader users
+                activate a 404. */}
+            <span
+              aria-disabled="true"
+              className="cursor-not-allowed rounded-lg px-3 py-2 text-sand-400 opacity-60"
+            >
+              Subscriptions
+            </span>
+            <span
+              aria-disabled="true"
+              className="cursor-not-allowed rounded-lg px-3 py-2 text-sand-400 opacity-60"
+            >
+              Orders
+            </span>
+          </nav>
+
+          <div className="ml-auto flex items-center gap-1.5">
+            <span
+              aria-disabled="true"
+              className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sand-400 opacity-60"
+            >
+              <ShoppingBasket className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Cart</span>
+            </span>
+            <span
+              aria-disabled="true"
+              className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sand-400 opacity-60"
+            >
+              <User className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Account</span>
+            </span>
+
+            {/* ── SessionUser slot ─────────────────────────────────────
+                Signed out: Login + Register. Signed in: the user's name
+                and a Log out control. */}
+            {user ? (
+              <div className="ml-1 flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sand-700">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
+                    {initials(user.name, user.email)}
+                  </span>
+                  <span className="max-w-[10rem] truncate">{user.name ?? user.email}</span>
+                </span>
+                <LogoutButton />
+              </div>
+            ) : (
+              <div className="ml-1 flex items-center gap-1.5">
+                <Link
+                  href="/login"
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-sand-600 transition hover:bg-sand-100 hover:text-sand-900"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/register"
+                  className="rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ── Main ────────────────────────────────────────────────────── */}
+      <main className="flex-1">{children}</main>
+
+      {/* ── Footer ──────────────────────────────────────────────────── */}
+      <footer className="border-t border-sand-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-sand-500 sm:flex-row sm:px-6 lg:px-8">
+          <p>
+            FreshTrace — farm-to-table produce with visible freshness, delivered
+            in Dhaka.
+          </p>
+          <p>Every batch is traceable back to its harvest.</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+/**
+ * Two-letter initials for the signed-in user's avatar.
+ *
+ * Falls back to the email's first character when the account has no name.
+ *
+ * @param {string | null | undefined} name
+ * @param {string} email
+ * @returns {string}
+ */
+function initials(name, email) {
+  const source = (name ?? "").trim();
+
+  if (source) {
+    const parts = source.split(/\s+/).filter(Boolean);
+    const letters = parts.slice(0, 2).map((part) => part[0]);
+    if (letters.length > 0) return letters.join("").toUpperCase();
+  }
+
+  return (email ?? "?").trim().charAt(0).toUpperCase() || "?";
+}
